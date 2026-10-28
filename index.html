@@ -885,18 +885,24 @@
         v.piani.forEach(p => (p.tags || []).forEach(t => (t.foto || []).forEach(fid => photoJobs.push({ tag: t, fid }))));
         if (!photoJobs.length) return null;
         section('Fotografie dei tag');
-        const cols = 3, gap = 4, cw = (W - gap * (cols - 1)) / cols, ch = cw * 0.75;
+        // Celle verticali 3:4; ogni foto entra nella cella mantenendo il proprio rapporto base/altezza (nessuna deformazione)
+        const cols = 3, gap = 4, cw = (W - gap * (cols - 1)) / cols, ch = cw * 4 / 3;
         let col = 0;
         return photoJobs.reduce((chain, job) => chain.then(() => blobOrNull(job.fid, 1200).then(d => {
           if (!d) return;
           if (col === 0) need(ch + 9);
           const x = M + col * (cw + gap);
-          try { doc.addImage(d, 'JPEG', x, y, cw, ch); } catch (e) { console.warn('Foto non inseribile', e); }
-          doc.setFontSize(7.5);
-          doc.text('Tag ' + job.tag.n + ' · ' + altro(job.tag.ambiente, job.tag.ambienteAltro), x, y + ch + 3.5);
-          doc.setFontSize(8.5);
-          col++;
-          if (col === cols) { col = 0; y += ch + 9; }
+          return loadImg(d).then(im => {
+            const s = Math.min(cw / im.width, ch / im.height);
+            const w = im.width * s, h = im.height * s;
+            try { doc.addImage(d, 'JPEG', x + (cw - w) / 2, y + (ch - h) / 2, w, h); } catch (e) { console.warn('Foto non inseribile', e); }
+          }, () => { console.warn('Foto non leggibile'); }).then(() => {
+            doc.setFontSize(7.5);
+            doc.text('Tag ' + job.tag.n + ' · ' + altro(job.tag.ambiente, job.tag.ambienteAltro), x, y + ch + 3.5);
+            doc.setFontSize(8.5);
+            col++;
+            if (col === cols) { col = 0; y += ch + 9; }
+          });
         })), Promise.resolve()).then(() => { if (col > 0) y += ch + 9; });
       }).then(() => {
         // ---- Conferma e firma
