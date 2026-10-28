@@ -14,7 +14,7 @@ Web app installabile (PWA) per la raccolta dei dati di sopralluogo per gli Attes
 - Versione di prova: elenco dei sopralluoghi; scheda con Generali, Involucro, Serramenti, Impianti, Rinnovabili, Planimetria (tag e foto) e Firma (con foto del documento).
 - Dati salvati sul telefono (localStorage), senza sincronizzazione. Le foto del documento occupano più spazio: con molti sopralluoghi conviene passare a IndexedDB.
 - Foto e planimetrie sono salvate in IndexedDB sul telefono. Le planimetrie PDF usano pdf.js dal CDN (serve connessione alla prima apertura).
-- Esportazione PDF: il pulsante "Esporta PDF" crea il file con tutte le sezioni, le planimetrie con i tag, le foto, il documento e la firma. Il file viene salvato in Download. La libreria jsPDF è in lib/ e funziona offline.
+- Esportazione PDF: il pulsante "Esporta PDF" si trova nella scheda Firma, sotto il riquadro della firma. Crea il file con tutte le sezioni, le planimetrie con i tag, le foto, il documento e la firma. Il file viene salvato in Download. La libreria jsPDF è in lib/ e funziona offline.
 - Da fare: collegamento a Google Drive, campi mancanti (ACS, raffrescamento, ventilazione, superfici).
 
 ## Sviluppo locale

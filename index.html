@@ -322,7 +322,7 @@
             '<div><div class="sub">Sopralluogo</div><h1>' + esc(v.indirizzo || 'Immobile') + '</h1></div></header>';
     h += '<nav class="tabs">' + TABS.map(t => '<button type="button" data-tab="' + t.id + '"' + (t.id === tab ? ' class="on"' : '') + '>' + t.label + '</button>').join('') + '</nav>';
     h += '<main>' + tabHtml(v) + '</main>';
-    h += '<footer class="bar"><button class="primary" id="exportPdf" type="button">Esporta PDF</button><div class="note" id="status">Modifiche salvate automaticamente sul telefono</div></footer>';
+    h += '<footer class="bar"><div class="note" id="status">Modifiche salvate automaticamente sul telefono</div></footer>';
     app.innerHTML = h;
     const sig = app.querySelector('#sig');
     if (sig) initSignature(sig, v);
@@ -512,6 +512,9 @@
         '<div class="row2"><button class="secondary" id="sigClear" type="button">Cancella</button>' +
         '<button class="primary" id="sigSave" type="button" style="min-height:46px">Conferma firma</button></div>' +
         '<div class="ok" id="sigOk">' + (fi.img ? 'Firma acquisita.' : '') + '</div>' +
+      '</div>' +
+      '<div class="sec-title">Esportazione</div><div class="unit">' +
+        '<button class="primary" id="exportPdf" type="button" style="width:100%">Esporta PDF</button>' +
       '</div>';
   }
 
@@ -703,7 +706,25 @@
       return { data: c.toDataURL('image/jpeg', 0.85), w: img.width, h: img.height };
     });
   }
-  function blobOrNull(id) { return id ? getBlob(id).then(b => b ? blobToDataUrl(b) : null).catch(() => null) : Promise.resolve(null); }
+  // Ridimensiona un'immagine (lato massimo maxSide) e la restituisce come JPEG in data URL: più leggera per il PDF sul telefono
+  function downscaledDataUrl(blob, maxSide) {
+    const url = URL.createObjectURL(blob);
+    return loadImg(url).then(img => {
+      const k = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.max(1, Math.round(img.width * k));
+      c.height = Math.max(1, Math.round(img.height * k));
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      return c.toDataURL('image/jpeg', 0.85);
+    }).finally(() => URL.revokeObjectURL(url));
+  }
+  function blobOrNull(id, maxSide) {
+    if (!id) return Promise.resolve(null);
+    return getBlob(id).then(b => {
+      if (!b) return null;
+      return maxSide ? downscaledDataUrl(b, maxSide) : blobToDataUrl(b);
+    }).catch(() => null);
+  }
   function altro(val, extra) { return val === 'ALTRO' || val === 'Altro' ? ((val) + (extra ? ': ' + extra : ' (non specificato)')) : (val || '-'); }
   function opts(options, chosen) { return options.map(o => ((chosen || []).indexOf(o) >= 0 ? '[X] ' : '[ ] ') + o).join('   '); }
   function dateIt(iso) {
@@ -837,7 +858,7 @@
 
       // ---- Planimetrie con tag
       section('Planimetrie e tag fotografici');
-      const planPromises = v.piani.map(p => blobOrNull(p.fileId).then(d => d ? planWithTags(d, p.tags) : null));
+      const planPromises = v.piani.map(p => blobOrNull(p.fileId, 1600).then(d => d ? planWithTags(d, p.tags).catch(() => null) : null));
       return Promise.all(planPromises).then(plans => {
         v.piani.forEach((p, pi) => {
           const pl = plans[pi];
@@ -866,11 +887,11 @@
         section('Fotografie dei tag');
         const cols = 3, gap = 4, cw = (W - gap * (cols - 1)) / cols, ch = cw * 0.75;
         let col = 0;
-        return photoJobs.reduce((chain, job) => chain.then(() => blobOrNull(job.fid).then(d => {
+        return photoJobs.reduce((chain, job) => chain.then(() => blobOrNull(job.fid, 1200).then(d => {
           if (!d) return;
           if (col === 0) need(ch + 9);
           const x = M + col * (cw + gap);
-          doc.addImage(d, 'JPEG', x, y, cw, ch);
+          try { doc.addImage(d, 'JPEG', x, y, cw, ch); } catch (e) { console.warn('Foto non inseribile', e); }
           doc.setFontSize(7.5);
           doc.text('Tag ' + job.tag.n + ' · ' + altro(job.tag.ambiente, job.tag.ambienteAltro), x, y + ch + 3.5);
           doc.setFontSize(8.5);
@@ -923,8 +944,9 @@
       const name = 'Sopralluogo_' + slug + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
       doc.save(name);
       setStatus('PDF creato: ' + name + ' (cartella Download)');
-    }).catch(() => {
-      setStatus('Impossibile creare il PDF. Riprova.');
+    }).catch((err) => {
+      console.error('Errore PDF:', err);
+      setStatus('Impossibile creare il PDF: ' + (err && err.message ? err.message : String(err)));
     }).then(() => { if (btn) btn.disabled = false; });
   }
 
