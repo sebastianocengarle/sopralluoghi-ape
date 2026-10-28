@@ -13,57 +13,67 @@
   :root { --indigo:#09405C; --saffron:#EFC000; --ink:#1f2421; --muted:#5b615c; --ground:#f4f3ef; --line:#d9d6cc; --tint:#e4ebef; }
   * { box-sizing: border-box; }
   body { margin:0; font-family:"Century Gothic","Segoe UI",system-ui,sans-serif; color:var(--ink); background:var(--ground); min-height:100vh; }
-  header { background:var(--indigo); color:#fff; padding:calc(env(safe-area-inset-top) + 20px) 20px 18px; }
-  header .sub { font-size:13px; opacity:.85; }
-  header h1 { font-size:24px; margin:4px 0 0; }
-  main { padding:16px; display:flex; flex-direction:column; gap:12px; }
+  header.top { position:sticky; top:0; z-index:5; background:var(--indigo); color:#fff; padding:calc(env(safe-area-inset-top) + 14px) 16px 14px; display:flex; align-items:center; gap:12px; }
+  header.top .sub { font-size:12px; opacity:.85; }
+  header.top h1 { font-size:20px; margin:2px 0 0; }
+  header.top .back { background:none; border:0; color:#fff; font:inherit; font-size:15px; padding:6px 8px 6px 0; cursor:pointer; }
+  main { padding:16px; display:flex; flex-direction:column; gap:12px; padding-bottom:110px; }
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; }
+  .card.list { cursor:pointer; }
   .card .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
   .card .addr { font-weight:600; }
   .card .meta { font-size:13px; color:var(--muted); margin-top:4px; }
   .badge { font-size:12px; background:var(--tint); color:var(--indigo); border-radius:999px; padding:3px 10px; white-space:nowrap; }
   .empty { text-align:center; color:var(--muted); padding:32px 8px; font-size:15px; }
-  footer { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom) + 16px); background:var(--ground); border-top:1px solid var(--line); }
+  footer.bar { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom) + 16px); background:var(--ground); border-top:1px solid var(--line); }
   button.primary { width:100%; min-height:52px; border:0; border-radius:26px; background:var(--indigo); color:#fff; font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
-  button.secondary { width:100%; min-height:52px; border:1px solid var(--line); border-radius:26px; background:#fff; color:var(--ink); font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
-  .spacer { height:96px; }
-  .note { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
+  button.secondary { min-height:48px; border:1px solid var(--line); border-radius:24px; background:#fff; color:var(--ink); font:inherit; font-size:15px; font-weight:600; padding:0 18px; cursor:pointer; }
+  button.link { background:none; border:0; color:var(--indigo); font:inherit; font-size:14px; font-weight:600; padding:6px 0; cursor:pointer; text-align:left; }
+  button.danger { background:none; border:0; color:#8a4b08; font:inherit; font-size:13px; padding:4px 0; cursor:pointer; }
+  .tabs { display:flex; gap:6px; overflow-x:auto; padding:10px 16px; background:#fff; border-bottom:1px solid var(--line); position:sticky; top:72px; z-index:4; }
+  .tabs button { flex:0 0 auto; border:1px solid var(--line); background:#fff; border-radius:999px; padding:7px 14px; font:inherit; font-size:13px; color:var(--ink); cursor:pointer; }
+  .tabs button.on { background:var(--indigo); border-color:var(--indigo); color:#fff; }
+  .sec-title { font-size:12px; color:var(--muted); margin:6px 0 -2px; text-transform:uppercase; letter-spacing:.04em; }
+  .unit { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; display:flex; flex-direction:column; gap:10px; }
+  .unit .head { display:flex; justify-content:space-between; align-items:center; }
+  .unit .head b { font-size:14px; }
+  label.f { display:flex; flex-direction:column; gap:4px; font-size:12px; color:var(--muted); }
+  input.t, select.t, textarea.t { height:46px; border:1px solid #cfcbbf; border-radius:8px; background:#fff; padding:0 12px; font:inherit; font-size:16px; color:var(--ink); width:100%; }
+  textarea.t { height:auto; min-height:64px; padding:10px 12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:8px; }
+  .chips label { font-size:14px; color:var(--ink); border:1px solid #cfcbbf; border-radius:999px; padding:8px 14px; background:#fff; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+  .chips input { margin:0; width:16px; height:16px; accent-color:var(--indigo); }
+  .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .add { margin-top:2px; }
+  .thumb { width:100%; height:130px; border:1px dashed var(--indigo); border-radius:10px; background:#f7f9fa; display:flex; align-items:center; justify-content:center; color:var(--indigo); font-size:14px; overflow:hidden; position:relative; cursor:pointer; }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .thumb input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
+  .sigbox { position:relative; background:#fff; border:1.5px dashed var(--indigo); border-radius:10px; height:200px; touch-action:none; }
+  .sigbox canvas { width:100%; height:100%; display:block; border-radius:10px; }
+  .sigbox .hint { position:absolute; left:12px; bottom:10px; font-size:12px; color:var(--muted); pointer-events:none; }
+  .ok { font-size:13px; color:var(--indigo); min-height:18px; }
+  .spacer { height:0; }
+  .note { font-size:12px; color:var(--muted); text-align:center; }
 
-  /* Modulo di creazione: foglio dal basso, dentro l'app */
   #sheet { position:fixed; inset:0; background:rgba(31,36,33,.45); display:none; align-items:flex-end; z-index:10; }
   #sheet.open { display:flex; }
   #sheet .panel { background:var(--ground); width:100%; border-radius:18px 18px 0 0; padding:18px 20px calc(env(safe-area-inset-bottom) + 20px); display:flex; flex-direction:column; gap:12px; }
   #sheet h2 { font-size:20px; margin:0; }
-  #sheet label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
-  #sheet input { width:100%; height:48px; border:1px solid #cfcbbf; border-radius:8px; background:#fff; padding:0 12px; font:inherit; font-size:16px; color:var(--ink); }
   #sheet .err { color:#8a4b08; font-size:13px; min-height:16px; }
   #sheet .row { display:flex; gap:10px; }
   #sheet .row > * { flex:1; }
 </style>
 </head>
 <body>
-<header>
-  <div class="sub">Attestati di prestazione energetica</div>
-  <h1>Sopralluoghi</h1>
-</header>
 
-<main id="list">
-  <div class="empty" id="empty">Nessun sopralluogo ancora.<br>Tocca “Nuovo sopralluogo” per iniziare.</div>
-</main>
-<div class="spacer"></div>
-
-<footer>
-  <button class="primary" id="openNew" type="button">+ Nuovo sopralluogo</button>
-  <div class="note">Versione di prova · dati salvati sul telefono</div>
-</footer>
+<div id="app"></div>
 
 <div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
   <form class="panel" id="newForm" autocomplete="off">
     <h2 id="sheetTitle">Nuovo sopralluogo</h2>
-    <div>
-      <label for="addr">Indirizzo dell’immobile</label>
-      <input id="addr" name="addr" type="text" placeholder="Es. Via Roma 12, Torino" maxlength="120" required>
-    </div>
+    <label class="f">Indirizzo dell’immobile
+      <input class="t" id="addr" name="addr" type="text" placeholder="Es. Via Roma 12, Torino" maxlength="120">
+    </label>
     <div class="err" id="err"></div>
     <div class="row">
       <button class="secondary" id="cancel" type="button">Annulla</button>
@@ -73,62 +83,465 @@
 </div>
 
 <script>
-  const KEY = 'sopralluoghi_v0';
-  const $ = (id) => document.getElementById(id);
+(function () {
+  'use strict';
+  const KEY = 'sopralluoghi_v1';
+  const TABS = [
+    { id: 'generali', label: 'Generali' },
+    { id: 'involucro', label: 'Involucro' },
+    { id: 'serramenti', label: 'Serramenti' },
+    { id: 'impianti', label: 'Impianti' },
+    { id: 'firma', label: 'Firma' }
+  ];
 
-  function load() {
+  // ---------- Dati ----------
+  function loadAll() {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
   }
-  function save(items) {
+  function saveAll(items) {
     try { localStorage.setItem(KEY, JSON.stringify(items)); return true; }
     catch (e) { return false; }
   }
+  function findVisit(id) { return loadAll().find(v => String(v.id) === String(id)); }
+  function updateVisit(id, mutator) {
+    const items = loadAll();
+    const v = items.find(x => String(x.id) === String(id));
+    if (!v) return;
+    mutator(v);
+    if (!saveAll(items)) setStatus('Spazio di archiviazione pieno: alcune modifiche non sono salvate.');
+  }
+  function newVisit(indirizzo) {
+    return {
+      id: Date.now(),
+      indirizzo: indirizzo,
+      creato: new Date().toISOString(),
+      generali: { nome: '', telefono: '', cf: '', foglio: '', mappale: '', sub: '', indirizzoEdificio: indirizzo,
+                  piano: '', pianiAbitazione: '', pianiEdificio: '', appartamenti: '',
+                  intervento: '', annoCostruzione: '', tipologiaEdificio: '' },
+      pareti: [ blankWall() ],
+      pavimenti: [ blankStruct() ],
+      solai: [ blankStruct() ],
+      coperture: [ blankStruct() ],
+      serramenti: [ blankWindow() ],
+      generatori: [ blankGen() ],
+      impianti: { emissione: '', emissioneAltro: '', regolazioneTipo: [], regolazioneCar: [] },
+      firma: { referente: '', qualita: '', qualitaAltro: '', tecnico: '', data: '', img: '', docFronte: '', docRetro: '' }
+    };
+  }
+  function blankWall() { return { descrizione: '', spessore: '', isolamento: '', spessoreIsolante: '', disperdenza: '' }; }
+  function blankStruct() { return { descrizione: '', isolamento: '', spessoreIsolante: '', confine: '', confineAltro: '' }; }
+  function blankWindow() { return { materiale: '', materialeAltro: '', vetro: '', vetroAltro: '', oscuranti: [] }; }
+  function blankGen() { return { tipologia: '', tipologiaAltro: '', combustibile: '', combustibileAltro: '', potenza: '', anno: '' }; }
 
-  function render() {
-    const items = load();
-    const list = $('list');
-    list.querySelectorAll('.card').forEach(n => n.remove());
-    $('empty').style.display = items.length ? 'none' : 'block';
-    items.forEach(it => {
-      const div = document.createElement('div');
-      div.className = 'card';
-      div.innerHTML = '<div class="top"><div class="addr"></div><span class="badge">Bozza</span></div><div class="meta"></div>';
-      div.querySelector('.addr').textContent = it.indirizzo;
-      div.querySelector('.meta').textContent = 'Creato il ' + new Date(it.creato).toLocaleDateString('it-IT');
-      list.appendChild(div);
+  // Gruppi ripetibili: chiave dati, titolo, etichetta, funzione per nuova voce, campi
+  const GROUPS = {
+    pareti:     { title: 'Pareti',                    item: 'Parete',    make: blankWall,
+                  fields: 'wall' },
+    pavimenti:  { title: 'Pavimento',                 item: 'Pavimento', make: blankStruct, fields: 'struct' },
+    solai:      { title: 'Solaio interpiano',         item: 'Solaio',    make: blankStruct, fields: 'struct' },
+    coperture:  { title: 'Copertura (o ultimo solaio)', item: 'Copertura', make: blankStruct, fields: 'struct' },
+    serramenti: { title: 'Serramenti',                item: 'Serramento', make: blankWindow, fields: 'window' },
+    generatori: { title: 'Generatori di calore',      item: 'Generatore', make: blankGen, fields: 'gen' }
+  };
+
+  const OPT = {
+    isolamento: ['Nessuno', 'Esterno', 'Interno', 'Intercapedine'],
+    disperdenza: ["Disperdente verso l'esterno", 'Disperdente verso zona non riscaldata', 'Disperdente verso terreno'],
+    confine: ['VERSO ESTERNO', 'VERSO TERRENO', 'VERSO NON RISCALDATO', 'ALTRO'],
+    materiale: ['LEGNO', 'PVC', 'ALLUMINIO', 'ALLUMINIO NO TT', 'MISTO', 'ALTRO'],
+    vetro: ['SINGOLO', 'DOPPIO', 'TRIPLO', 'BASSO EMISSIVO', 'ALTRO'],
+    oscuranti: ['Tapparella', 'Scuri', 'Nessuno'],
+    tipologiaGen: ['CALDAIA A CONDENSAZIONE', 'CALDAIA TRADIZIONALE', 'POMPA DI CALORE ARIA-ACQUA', 'POMPA DI CALORE GEOTERMICA', 'GENERATORE A BIOMASSA', 'TELERISCALDAMENTO', 'ALTRO'],
+    combustibile: ['METANO', 'GPL', 'GASOLIO', 'LEGNA', 'PELLET', 'ENERGIA ELETTRICA', 'ALTRO'],
+    emissione: ['RADIATORI', 'VENTILCONVETTORI', 'PANNELLI RADIANTI', 'ALTRO'],
+    regolazioneTipo: ['Di zona', 'Climatica', 'Per singolo ambiente'],
+    regolazioneCar: ['Termostato', 'Valvola termostatica', 'Termoregolazione evoluta'],
+    intervento: ['Nuova costruzione', 'Passaggio proprietà', 'Locazione', 'Riqualificazione energetica'],
+    qualita: ['Proprietario', 'Incaricato alla vendita', 'Referente proprietario', 'Altro']
+  };
+
+  // ---------- Stato UI ----------
+  let tab = 'generali';
+  const app = document.getElementById('app');
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+  function setStatus(msg) {
+    const el = document.getElementById('status');
+    if (el) el.textContent = msg;
+  }
+
+  // ---------- Campi ----------
+  function field(label, inner) { return '<label class="f">' + esc(label) + inner + '</label>'; }
+  function input(attrs, value, type) {
+    return '<input class="t" type="' + (type || 'text') + '" ' + attrs + ' value="' + esc(value) + '">';
+  }
+  function numInput(attrs, value) { return '<input class="t" type="number" inputmode="decimal" min="0" step="any" ' + attrs + ' value="' + esc(value) + '">'; }
+  function select(attrs, options, value) {
+    let h = '<select class="t" ' + attrs + '><option value="">Scegli…</option>';
+    options.forEach(o => { h += '<option value="' + esc(o) + '"' + (o === value ? ' selected' : '') + '>' + esc(o) + '</option>'; });
+    return h + '</select>';
+  }
+  function checks(attrs, options, values) {
+    values = values || [];
+    return '<div class="chips">' + options.map(o =>
+      '<label><input type="checkbox" ' + attrs + ' value="' + esc(o) + '"' + (values.indexOf(o) >= 0 ? ' checked' : '') + '>' + esc(o) + '</label>'
+    ).join('') + '</div>';
+  }
+  function altroField(attrs, value) {
+    return field('Altro (specificare)', input(attrs, value));
+  }
+
+  // ---------- Viste ----------
+  function renderList() {
+    const items = loadAll();
+    let h = '<header class="top"><div><div class="sub">Attestati di prestazione energetica</div><h1>Sopralluoghi</h1></div></header>';
+    h += '<main>';
+    if (!items.length) h += '<div class="empty">Nessun sopralluogo ancora.<br>Tocca “Nuovo sopralluogo” per iniziare.</div>';
+    items.forEach(v => {
+      h += '<div class="card list" data-open="' + esc(v.id) + '" role="button" tabindex="0">' +
+             '<div class="top"><div class="addr">' + esc(v.indirizzo || '[Indirizzo immobile]') + '</div><span class="badge">Bozza</span></div>' +
+             '<div class="meta">Creato il ' + esc(new Date(v.creato).toLocaleDateString('it-IT')) + '</div></div>';
+    });
+    h += '</main>';
+    h += '<footer class="bar"><button class="primary" id="openNew" type="button">+ Nuovo sopralluogo</button>' +
+         '<div class="note" id="status">Versione di prova · dati salvati sul telefono</div></footer>';
+    app.innerHTML = h;
+  }
+
+  function renderDetail(id) {
+    const v = findVisit(id);
+    if (!v) { location.hash = ''; return; }
+    let h = '<header class="top"><button class="back" id="back" type="button">‹ Elenco</button>' +
+            '<div><div class="sub">Sopralluogo</div><h1>' + esc(v.indirizzo || 'Immobile') + '</h1></div></header>';
+    h += '<nav class="tabs">' + TABS.map(t => '<button type="button" data-tab="' + t.id + '"' + (t.id === tab ? ' class="on"' : '') + '>' + t.label + '</button>').join('') + '</nav>';
+    h += '<main>' + tabHtml(v) + '</main>';
+    h += '<footer class="bar"><div class="note" id="status">Modifiche salvate automaticamente sul telefono</div></footer>';
+    app.innerHTML = h;
+    const sig = app.querySelector('#sig');
+    if (sig) initSignature(sig, v);
+  }
+
+  function tabHtml(v) {
+    if (tab === 'generali') return generaliHtml(v);
+    if (tab === 'involucro') return involucroHtml(v);
+    if (tab === 'serramenti') return serramentiHtml(v);
+    if (tab === 'impianti') return impiantiHtml(v);
+    return firmaHtml(v);
+  }
+
+  function generaliHtml(v) {
+    const g = v.generali;
+    const f = (k) => 'data-g="generali" data-f="' + k + '"';
+    return '<div class="sec-title">Proprietario</div>' +
+      '<div class="unit">' +
+        field('Nome e cognome', input(f('nome'), g.nome)) +
+        field('Telefono / e-mail', input(f('telefono'), g.telefono)) +
+        field('Codice fiscale / P.IVA', input(f('cf'), g.cf)) +
+      '</div>' +
+      '<div class="sec-title">Immobile</div>' +
+      '<div class="unit">' +
+        field('Indirizzo edificio', input(f('indirizzoEdificio'), g.indirizzoEdificio)) +
+        '<div class="row2">' + field('Foglio', input(f('foglio'), g.foglio)) + field('Mappale', input(f('mappale'), g.mappale)) + '</div>' +
+        field('Subalterno', input(f('sub'), g.sub)) +
+        '<div class="row2">' + field('Piano abitazione', input(f('piano'), g.piano)) + field('N° appartamenti', numInput(f('appartamenti'), g.appartamenti)) + '</div>' +
+        '<div class="row2">' + field('N° piani abitazione', numInput(f('pianiAbitazione'), g.pianiAbitazione)) + field('N° piani edificio', numInput(f('pianiEdificio'), g.pianiEdificio)) + '</div>' +
+        field('Tipo di intervento', select(f('intervento'), OPT.intervento, g.intervento)) +
+        '<div class="row2">' + field('Anno costruzione / ristrutt.', numInput(f('annoCostruzione'), g.annoCostruzione)) + field('Tipologia edificio', input(f('tipologiaEdificio'), g.tipologiaEdificio)) + '</div>' +
+      '</div>';
+  }
+
+  function structFields(kind, item, i) {
+    const a = 'data-g="' + kind + '" data-i="' + i + '" data-f="';
+    let h = field('Descrizione', input(a + 'descrizione"', item.descrizione));
+    h += '<div class="sec-title" style="margin:4px 0 -4px">Isolamento</div>';
+    h += field('Presenza e tipo', select(a + 'isolamento"', OPT.isolamento, item.isolamento));
+    h += field('Spessore isolante (cm)', numInput(a + 'spessoreIsolante"', item.spessoreIsolante));
+    return h;
+  }
+
+  function wallFields(item, i) {
+    const a = 'data-g="pareti" data-i="' + i + '" data-f="';
+    return field('Descrizione', input(a + 'descrizione"', item.descrizione)) +
+      '<div class="row2">' + field('Spessore parete (cm)', numInput(a + 'spessore"', item.spessore)) +
+      field('Spessore isolante (cm)', numInput(a + 'spessoreIsolante"', item.spessoreIsolante)) + '</div>' +
+      field('Isolamento', select(a + 'isolamento"', OPT.isolamento, item.isolamento)) +
+      field('Disperdenza', select(a + 'disperdenza"', OPT.disperdenza, item.disperdenza));
+  }
+
+  function confineFields(kind, item, i) {
+    const a = 'data-g="' + kind + '" data-i="' + i + '" data-f="';
+    return field('Confine', select(a + 'confine"', OPT.confine, item.confine)) +
+           altroField(a + 'confineAltro"', item.confineAltro);
+  }
+
+  function windowFields(item, i) {
+    const a = 'data-g="serramenti" data-i="' + i + '" data-f="';
+    return field('Materiale', select(a + 'materiale"', OPT.materiale, item.materiale)) +
+           altroField(a + 'materialeAltro"', item.materialeAltro) +
+           field('Vetro', select(a + 'vetro"', OPT.vetro, item.vetro)) +
+           altroField(a + 'vetroAltro"', item.vetroAltro) +
+           '<div class="sec-title" style="margin:4px 0 -4px">Oscuranti</div>' +
+           checks('data-g="serramenti" data-i="' + i + '" data-f="oscuranti" data-multi="1"', OPT.oscuranti, item.oscuranti);
+  }
+
+  function genFields(item, i) {
+    const a = 'data-g="generatori" data-i="' + i + '" data-f="';
+    return field('Tipologia generatore', select(a + 'tipologia"', OPT.tipologiaGen, item.tipologia)) +
+           altroField(a + 'tipologiaAltro"', item.tipologiaAltro) +
+           field('Combustibile', select(a + 'combustibile"', OPT.combustibile, item.combustibile)) +
+           altroField(a + 'combustibileAltro"', item.combustibileAltro) +
+           '<div class="row2">' + field('Potenza (kW)', numInput(a + 'potenza"', item.potenza)) +
+           field('Anno installazione', numInput(a + 'anno"', item.anno)) + '</div>';
+  }
+
+  function groupHtml(key, fieldFn, title, itemLabel, list, addLabel) {
+    let h = '<div class="sec-title">' + esc(title) + '</div>';
+    list.forEach((item, i) => {
+      const name = (key === 'pareti' && i === 0) ? 'Parete principale' : (itemLabel + ' ' + (i + 1));
+      h += '<div class="unit"><div class="head"><b>' + esc(name) + '</b>' +
+           (list.length > 1 ? '<button class="danger" type="button" data-del="' + key + '" data-i="' + i + '">Rimuovi</button>' : '') +
+           '</div>' + fieldFn(item, i) + '</div>';
+    });
+    h += '<button class="link add" type="button" data-add="' + key + '">+ ' + esc(addLabel) + '</button>';
+    return h;
+  }
+
+  function involucroHtml(v) {
+    let h = '';
+    h += groupHtml('pareti', wallFields, 'Pareti', 'Parete', v.pareti, 'Aggiungi parete');
+    h += groupHtml('pavimenti', (it, i) => structFields('pavimenti', it, i) + confineFields('pavimenti', it, i), 'Pavimento', 'Pavimento', v.pavimenti, 'Aggiungi pavimento');
+    h += groupHtml('solai', (it, i) => structFields('solai', it, i) + confineFields('solai', it, i), 'Solaio interpiano', 'Solaio', v.solai, 'Aggiungi solaio interpiano');
+    h += groupHtml('coperture', (it, i) => structFields('coperture', it, i) + confineFields('coperture', it, i), 'Copertura (o ultimo solaio)', 'Copertura', v.coperture, 'Aggiungi copertura');
+    return h;
+  }
+
+  function serramentiHtml(v) {
+    return groupHtml('serramenti', windowFields, 'Serramenti', 'Serramento', v.serramenti, 'Aggiungi serramento');
+  }
+
+  function impiantiHtml(v) {
+    const im = v.impianti;
+    let h = groupHtml('generatori', genFields, 'Generatori di calore', 'Generatore', v.generatori, 'Aggiungi generatore');
+    h += '<div class="sec-title">Impianto di emissione</div><div class="unit">' +
+         field('Tipo impianto', select('data-g="impianti" data-f="emissione"', OPT.emissione, im.emissione)) +
+         altroField('data-g="impianti" data-f="emissioneAltro"', im.emissioneAltro) + '</div>';
+    h += '<div class="sec-title">Regolazione</div><div class="unit">' +
+         '<div class="f" style="font-size:12px;color:var(--muted)">Tipo di regolazione</div>' +
+         checks('data-g="impianti" data-f="regolazioneTipo" data-multi="1"', OPT.regolazioneTipo, im.regolazioneTipo) +
+         '<div class="f" style="font-size:12px;color:var(--muted);margin-top:6px">Caratteristiche</div>' +
+         checks('data-g="impianti" data-f="regolazioneCar" data-multi="1"', OPT.regolazioneCar, im.regolazioneCar) +
+         '</div>';
+    return h;
+  }
+
+  function firmaHtml(v) {
+    const fi = v.firma;
+    const thumb = (key, label) => '<div class="thumb">' + (fi[key]
+      ? '<img alt="' + label + '" src="' + fi[key] + '">'
+      : '<span>+ ' + label + '</span>') +
+      '<input type="file" accept="image/*" capture="environment" data-doc="' + key + '" aria-label="' + label + '"></div>';
+    return '<div class="sec-title">Referente</div><div class="unit">' +
+      field('Nome e cognome del referente', input('data-g="firma" data-f="referente"', fi.referente)) +
+      field('In qualità di', select('data-g="firma" data-f="qualita"', OPT.qualita, fi.qualita)) +
+      altroField('data-g="firma" data-f="qualitaAltro"', fi.qualitaAltro) +
+      field('Nome del tecnico', input('data-g="firma" data-f="tecnico"', fi.tecnico)) +
+      field('Data sopralluogo', input('data-g="firma" data-f="data"', fi.data, 'date')) +
+      '</div>' +
+      '<div class="sec-title">Documento di identità del referente</div><div class="unit">' +
+        '<div class="row2">' + thumb('docFronte', 'Fronte') + thumb('docRetro', 'Retro') + '</div>' +
+      '</div>' +
+      '<div class="sec-title">Firma del referente</div><div class="unit">' +
+        '<div class="sigbox" id="sig"><canvas></canvas><span class="hint">Firma qui con il dito</span></div>' +
+        '<div class="row2"><button class="secondary" id="sigClear" type="button">Cancella</button>' +
+        '<button class="primary" id="sigSave" type="button" style="min-height:46px">Conferma firma</button></div>' +
+        '<div class="ok" id="sigOk">' + (fi.img ? 'Firma acquisita.' : '') + '</div>' +
+      '</div>';
+  }
+
+  // ---------- Firma ----------
+  function initSignature(box, v) {
+    const canvas = box.querySelector('canvas');
+    const ctx = canvas.getContext('2d');
+    const dpr = window.devicePixelRatio || 1;
+    function fit() {
+      const r = box.getBoundingClientRect();
+      const keep = canvas.toDataURL();
+      canvas.width = Math.max(1, Math.floor(r.width * dpr));
+      canvas.height = Math.max(1, Math.floor(r.height * dpr));
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2421';
+      if (v.firma.img) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = v.firma.img; }
+    }
+    fit();
+    let drawing = false, last = null, touched = false;
+    function pos(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    canvas.addEventListener('pointerdown', (e) => { drawing = true; last = pos(e); touched = true; canvas.setPointerCapture(e.pointerId); box.querySelector('.hint').style.display = 'none'; });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!drawing) return;
+      const p = pos(e);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke();
+      last = p;
+    });
+    const end = () => { drawing = false; };
+    canvas.addEventListener('pointerup', end);
+    canvas.addEventListener('pointercancel', end);
+    document.getElementById('sigClear').addEventListener('click', () => {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      box.querySelector('.hint').style.display = '';
+      touched = false;
+      updateVisit(v.id, x => { x.firma.img = ''; });
+      document.getElementById('sigOk').textContent = '';
+    });
+    document.getElementById('sigSave').addEventListener('click', () => {
+      if (!touched && !v.firma.img) { document.getElementById('sigOk').textContent = 'Disegna la firma prima di confermare.'; return; }
+      const data = canvas.toDataURL('image/png');
+      updateVisit(v.id, x => { x.firma.img = data; });
+      v.firma.img = data;
+      document.getElementById('sigOk').textContent = 'Firma acquisita.';
     });
   }
 
-  function openSheet() {
-    $('err').textContent = '';
-    $('addr').value = '';
-    $('sheet').classList.add('open');
-    setTimeout(() => $('addr').focus(), 50);
-  }
-  function closeSheet() {
-    $('sheet').classList.remove('open');
+  // ---------- Foto documento (ridotte per il salvataggio) ----------
+  function shrinkImage(file, maxSide, cb) {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        cb(c.toDataURL('image/jpeg', 0.7));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
   }
 
-  $('openNew').addEventListener('click', openSheet);
-  $('cancel').addEventListener('click', closeSheet);
-  $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
+  // ---------- Eventi ----------
+  function nowIdOf(el) { return el.closest('[data-id]'); }
 
-  $('newForm').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const indirizzo = $('addr').value.trim();
-    if (!indirizzo) { $('err').textContent = 'Inserisci l’indirizzo.'; return; }
-    const items = load();
-    items.unshift({ id: Date.now(), indirizzo: indirizzo, creato: new Date().toISOString() });
-    if (!save(items)) { $('err').textContent = 'Impossibile salvare sul telefono. Riprova.'; return; }
-    closeSheet();
-    render();
+  function applyChange(target) {
+    const id = currentId();
+    const g = target.getAttribute('data-g');
+    const f = target.getAttribute('data-f');
+    if (!g || !f) return;
+    const i = target.getAttribute('data-i');
+    let value;
+    if (target.type === 'checkbox') {
+      value = undefined;
+    } else {
+      value = target.value;
+    }
+    updateVisit(id, v => {
+      if (target.type === 'checkbox') {
+        const arr = (i != null ? v[g][Number(i)][f] : v[g][f]) || [];
+        const val = target.value;
+        const out = target.checked ? arr.concat([val]) : arr.filter(x => x !== val);
+        if (i != null) v[g][Number(i)][f] = out; else v[g][f] = out;
+      } else if (i != null) {
+        v[g][Number(i)][f] = value;
+      } else {
+        v[g][f] = value;
+      }
+    });
+  }
+
+  function currentId() {
+    const m = location.hash.match(/^#\/s\/(\d+)/);
+    return m ? m[1] : null;
+  }
+
+  function refreshDetail() {
+    const id = currentId();
+    if (id) renderDetail(id); else renderList();
+  }
+
+  app.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t.hasAttribute('data-g') || t.type === 'checkbox') return;
+    applyChange(t);
+  });
+  app.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t.matches('input[type=file][data-doc]')) {
+      const file = t.files && t.files[0];
+      if (!file) return;
+      const key = t.getAttribute('data-doc');
+      shrinkImage(file, 1000, (dataUrl) => {
+        updateVisit(currentId(), v => { v.firma[key] = dataUrl; });
+        renderDetail(currentId());
+      });
+      return;
+    }
+    if (t.type === 'checkbox' && t.hasAttribute('data-g')) { applyChange(t); return; }
+    if (t.tagName === 'SELECT' && t.hasAttribute('data-g')) { applyChange(t); return; }
+    if (t.type === 'date' && t.hasAttribute('data-g')) { applyChange(t); return; }
   });
 
-  render();
+  app.addEventListener('click', (e) => {
+    const t = e.target.closest('button, [data-open]');
+    if (!t) return;
+    if (t.hasAttribute('data-open')) { location.hash = '#/s/' + t.getAttribute('data-open'); return; }
+    if (t.id === 'openNew') { openSheet(); return; }
+    if (t.id === 'back') { location.hash = ''; return; }
+    if (t.hasAttribute('data-tab')) { tab = t.getAttribute('data-tab'); renderDetail(currentId()); return; }
+    if (t.hasAttribute('data-add')) {
+      const key = t.getAttribute('data-add');
+      const id = currentId();
+      updateVisit(id, v => { v[key].push(GROUPS[key].make()); });
+      renderDetail(id);
+      return;
+    }
+    if (t.hasAttribute('data-del')) {
+      const key = t.getAttribute('data-del');
+      const idx = Number(t.getAttribute('data-i'));
+      const id = currentId();
+      updateVisit(id, v => { v[key].splice(idx, 1); });
+      renderDetail(id);
+      return;
+    }
+  });
+
+  app.addEventListener('keydown', (e) => {
+    const t = e.target;
+    if (e.key === 'Enter' && t.matches('[data-open]')) location.hash = '#/s/' + t.getAttribute('data-open');
+  });
+
+  // ---------- Nuovo sopralluogo ----------
+  const sheet = document.getElementById('sheet');
+  function openSheet() {
+    document.getElementById('err').textContent = '';
+    document.getElementById('addr').value = '';
+    sheet.classList.add('open');
+    setTimeout(() => document.getElementById('addr').focus(), 50);
+  }
+  function closeSheet() { sheet.classList.remove('open'); }
+  document.getElementById('cancel').addEventListener('click', closeSheet);
+  sheet.addEventListener('click', (e) => { if (e.target === sheet) closeSheet(); });
+  document.getElementById('newForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const indirizzo = document.getElementById('addr').value.trim();
+    if (!indirizzo) { document.getElementById('err').textContent = 'Inserisci l’indirizzo.'; return; }
+    const items = loadAll();
+    const v = newVisit(indirizzo);
+    items.unshift(v);
+    if (!saveAll(items)) { document.getElementById('err').textContent = 'Impossibile salvare sul telefono. Riprova.'; return; }
+    closeSheet();
+    tab = 'generali';
+    location.hash = '#/s/' + v.id;
+  });
+
+  // Il pulsante "Nuovo" sta nella barra in basso: delegato sopra in app.click.
+  window.addEventListener('hashchange', refreshDetail);
+  refreshDetail();
 
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
   }
+})();
 </script>
 </body>
 </html>

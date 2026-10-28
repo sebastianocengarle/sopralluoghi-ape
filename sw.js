@@ -1,5 +1,5 @@
 // Service worker: rete prima, cache come riserva (così il telefono riceve sempre l'ultima versione).
-const CACHE = 'sopralluoghi-v0-2';
+const CACHE = 'sopralluoghi-v1-0';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
