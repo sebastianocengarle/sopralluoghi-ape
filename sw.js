@@ -1,6 +1,6 @@
 // Service worker: rete prima, cache come riserva (così il telefono riceve sempre l'ultima versione).
-const CACHE = 'sopralluoghi-v1-1';
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
+const CACHE = 'sopralluoghi-v1-2';
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './lib/jspdf.umd.min.js'];
 
 self.addEventListener('install', (event) => {
   event.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));

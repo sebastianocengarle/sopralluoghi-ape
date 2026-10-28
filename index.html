@@ -17,7 +17,7 @@
   header.top .sub { font-size:12px; opacity:.85; }
   header.top h1 { font-size:20px; margin:2px 0 0; }
   header.top .back { background:none; border:0; color:#fff; font:inherit; font-size:15px; padding:6px 8px 6px 0; cursor:pointer; }
-  main { padding:16px; display:flex; flex-direction:column; gap:12px; padding-bottom:110px; }
+  main { padding:16px; display:flex; flex-direction:column; gap:12px; padding-bottom:150px; }
   .card { background:#fff; border:1px solid var(--line); border-radius:12px; padding:14px; }
   .card.list { cursor:pointer; }
   .card .top { display:flex; justify-content:space-between; align-items:center; gap:8px; }
@@ -322,7 +322,7 @@
             '<div><div class="sub">Sopralluogo</div><h1>' + esc(v.indirizzo || 'Immobile') + '</h1></div></header>';
     h += '<nav class="tabs">' + TABS.map(t => '<button type="button" data-tab="' + t.id + '"' + (t.id === tab ? ' class="on"' : '') + '>' + t.label + '</button>').join('') + '</nav>';
     h += '<main>' + tabHtml(v) + '</main>';
-    h += '<footer class="bar"><div class="note" id="status">Modifiche salvate automaticamente sul telefono</div></footer>';
+    h += '<footer class="bar"><button class="primary" id="exportPdf" type="button">Esporta PDF</button><div class="note" id="status">Modifiche salvate automaticamente sul telefono</div></footer>';
     app.innerHTML = h;
     const sig = app.querySelector('#sig');
     if (sig) initSignature(sig, v);
@@ -401,7 +401,7 @@
       field('Presente', select(a + 'presente"', OPT.presente, item.presente)) +
       '<div class="row2">' + field('Anno installazione', numInput(a + 'anno"', item.anno)) +
       field('Potenza (kW)', numInput(a + 'potenza"', item.potenza)) + '</div>' +
-      field('Superficie (m²), solo solare termico', numInput(a + 'superficie"', item.superficie));
+      field('Superficie (m2), solo solare termico', numInput(a + 'superficie"', item.superficie));
   }
 
   function groupHtml(key, fieldFn, title, list, addLabel) {
@@ -651,6 +651,283 @@
     renderDetail(currentId());
   }
 
+  // ================= Esportazione PDF =================
+  let jspdfReady = null;
+  function loadJsPdf() {
+    if (window.jspdf) return Promise.resolve(window.jspdf.jsPDF);
+    if (!jspdfReady) {
+      jspdfReady = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'lib/jspdf.umd.min.js';
+        s.onload = () => resolve(window.jspdf.jsPDF);
+        s.onerror = () => reject(new Error('jspdf'));
+        document.head.appendChild(s);
+      });
+    }
+    return jspdfReady;
+  }
+  function blobToDataUrl(blob) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = reject;
+      r.readAsDataURL(blob);
+    });
+  }
+  function loadImg(src) {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = src;
+    });
+  }
+  // Planimetria con i tag numerati disegnati sopra
+  function planWithTags(dataUrl, tags) {
+    return loadImg(dataUrl).then(img => {
+      const c = document.createElement('canvas');
+      c.width = img.width; c.height = img.height;
+      const ctx = c.getContext('2d');
+      ctx.drawImage(img, 0, 0);
+      const r = Math.max(14, img.width * 0.018);
+      (tags || []).forEach(t => {
+        const x = t.x * img.width, y = t.y * img.height;
+        ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fillStyle = '#09405C'; ctx.fill();
+        ctx.lineWidth = r * 0.12; ctx.strokeStyle = '#ffffff'; ctx.stroke();
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold ' + Math.round(r * 1.1) + 'px sans-serif';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(t.n), x, y);
+      });
+      return { data: c.toDataURL('image/jpeg', 0.85), w: img.width, h: img.height };
+    });
+  }
+  function blobOrNull(id) { return id ? getBlob(id).then(b => b ? blobToDataUrl(b) : null).catch(() => null) : Promise.resolve(null); }
+  function altro(val, extra) { return val === 'ALTRO' || val === 'Altro' ? ((val) + (extra ? ': ' + extra : ' (non specificato)')) : (val || '-'); }
+  function opts(options, chosen) { return options.map(o => ((chosen || []).indexOf(o) >= 0 ? '[X] ' : '[ ] ') + o).join('   '); }
+  function dateIt(iso) {
+    if (!iso) return '-';
+    const p = iso.split('-');
+    return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso;
+  }
+
+  function buildPdf(v) {
+    return loadJsPdf().then(JsPDF => {
+      const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+      const M = 12, PW = 210, PH = 297, W = PW - 2 * M, LS = 4.1, PAD = 1.6;
+      let y = M;
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+
+      function need(h) { if (y + h > PH - 14) { doc.addPage(); y = M; } }
+      function title(text) {
+        need(12);
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(13);
+        doc.text(text, M, y + 5);
+        y += 9;
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+      }
+      function section(text) {
+        need(12); y += 3;
+        doc.setFillColor(217, 217, 217);
+        doc.rect(M, y, W, 6, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(9);
+        doc.text(text.toUpperCase(), M + 2, y + 4.2);
+        doc.setFont('helvetica', 'normal'); doc.setFontSize(8.5);
+        y += 7;
+      }
+      // cells: [{ t: testo, w: larghezza mm, b: grassetto }]
+      function row(cells, header) {
+        const wrapped = cells.map(c => doc.splitTextToSize(String(c.t == null || c.t === '' ? '-' : c.t), c.w - 2 * PAD));
+        const lines = Math.max(1, ...wrapped.map(l => l.length));
+        const h = lines * LS + 2 * PAD;
+        need(h);
+        let x = M;
+        cells.forEach((c, i) => {
+          if (header) { doc.setFillColor(240, 239, 233); doc.rect(x, y, c.w, h, 'FD'); }
+          else { doc.rect(x, y, c.w, h); }
+          doc.setFont('helvetica', (c.b || header) ? 'bold' : 'normal');
+          wrapped[i].forEach((ln, k) => doc.text(ln, x + PAD, y + PAD + 3 + k * LS));
+          x += c.w;
+        });
+        doc.setFont('helvetica', 'normal');
+        y += h;
+      }
+      function kv(label, value) { row([{ t: label, w: 56, b: true }, { t: value, w: W - 56 }]); }
+      function paragraph(text) {
+        const lines = doc.splitTextToSize(text, W);
+        need(lines.length * LS + 2);
+        lines.forEach(ln => { doc.text(ln, M, y + 3); y += LS; });
+        y += 2;
+      }
+
+      // ---- Intestazione
+      title('SCHEDA RACCOLTA DATI - ATTESTATO DI PRESTAZIONE ENERGETICA');
+      doc.setFontSize(8.5);
+      doc.text('Immobile: ' + (v.indirizzo || '-') + '     Generato il: ' + new Date().toLocaleDateString('it-IT'), M, y + 3);
+      y += 7;
+
+      const g = v.generali, im = v.impianti, fi = v.firma;
+
+      // ---- Proprietario e immobile
+      section('Informazioni proprietario');
+      kv('Nome e cognome', g.nome);
+      kv('Telefono / e-mail', g.telefono);
+      kv('Codice fiscale / P.IVA', g.cf);
+      section('Informazioni immobile');
+      kv('Indirizzo edificio', g.indirizzoEdificio);
+      row([{ t: 'Foglio', w: 30, b: true }, { t: g.foglio, w: 33 }, { t: 'Mappale', w: 30, b: true }, { t: g.mappale, w: 33 }, { t: 'Subalterno', w: 30, b: true }, { t: g.sub, w: 30 }]);
+      row([{ t: 'Piano abitazione', w: 30, b: true }, { t: g.piano, w: 33 }, { t: 'N° piani abitazione', w: 30, b: true }, { t: g.pianiAbitazione, w: 33 }, { t: 'N° piani edificio', w: 30, b: true }, { t: g.pianiEdificio, w: 30 }]);
+      kv('N° appartamenti', g.appartamenti);
+      kv('Tipo di intervento', opts(OPT.intervento, g.intervento ? [g.intervento] : []));
+      kv('Anno costruzione / ristrutt.', g.annoCostruzione);
+      kv('Tipologia edificio', g.tipologiaEdificio);
+
+      // ---- Involucro
+      section('Involucro opaco');
+      row([{ t: 'Parete', w: 28, b: true }, { t: 'Descrizione', w: 46, b: true }, { t: 'Spessore (cm)', w: 18, b: true }, { t: 'Isolamento', w: 28, b: true }, { t: 'Sp. isolante (cm)', w: 18, b: true }, { t: 'Disperdenza', w: 48, b: true }], true);
+      v.pareti.forEach((p, i) => row([
+        { t: i === 0 ? 'Parete principale' : 'Parete ' + (i + 1), w: 28, b: true }, { t: p.descrizione, w: 46 }, { t: p.spessore, w: 18 },
+        { t: p.isolamento, w: 28 }, { t: p.spessoreIsolante, w: 18 }, { t: p.disperdenza, w: 48 }
+      ]));
+      const structs = [['Pavimento', v.pavimenti], ['Solaio interpiano', v.solai], ['Copertura', v.coperture]];
+      structs.forEach(([nome, list]) => {
+        row([{ t: nome, w: 30, b: true }, { t: 'Descrizione', w: 56, b: true }, { t: 'Isolamento', w: 30, b: true }, { t: 'Sp. isolante (cm)', w: 20, b: true }, { t: 'Confine', w: 50, b: true }], true);
+        list.forEach((s, i) => row([
+          { t: list.length > 1 ? nome + ' ' + (i + 1) : nome, w: 30, b: true }, { t: s.descrizione, w: 56 },
+          { t: s.isolamento, w: 30 }, { t: s.spessoreIsolante, w: 20 }, { t: altro(s.confine, s.confineAltro), w: 50 }
+        ]));
+      });
+
+      // ---- Serramenti
+      section('Serramenti');
+      row([{ t: 'Serramento', w: 28, b: true }, { t: 'Materiale', w: 60, b: true }, { t: 'Tipo vetro', w: 50, b: true }, { t: 'Tapparelle / Scuri', w: 48, b: true }], true);
+      v.serramenti.forEach((s, i) => row([
+        { t: 'Serramento ' + (i + 1), w: 28, b: true },
+        { t: altro(s.materiale, s.materialeAltro), w: 60 },
+        { t: altro(s.vetro, s.vetroAltro), w: 50 },
+        { t: opts(OPT.oscuranti, s.oscuranti), w: 48 }
+      ]));
+
+      // ---- Impianti
+      section('Impianti');
+      row([{ t: 'Generatore', w: 26, b: true }, { t: 'Tipologia', w: 66, b: true }, { t: 'Combustibile', w: 40, b: true }, { t: 'Potenza (kW)', w: 27, b: true }, { t: 'Anno', w: 27, b: true }], true);
+      v.generatori.forEach((gen, i) => row([
+        { t: 'Generatore ' + (i + 1), w: 26, b: true },
+        { t: altro(gen.tipologia, gen.tipologiaAltro), w: 66 },
+        { t: altro(gen.combustibile, gen.combustibileAltro), w: 40 },
+        { t: gen.potenza, w: 27 }, { t: gen.anno, w: 27 }
+      ]));
+      kv('Impianto di emissione', altro(im.emissione, im.emissioneAltro));
+      kv('Tipo di regolazione', opts(OPT.regolazioneTipo, im.regolazioneTipo));
+      kv('Caratteristiche regolazione', opts(OPT.regolazioneCar, im.regolazioneCar));
+
+      // ---- Rinnovabili e altri impianti
+      section('Fonti rinnovabili e altri impianti');
+      if (!v.rinnovabili.length) {
+        row([{ t: 'Nessun impianto inserito', w: W }]);
+      } else {
+        row([{ t: 'Impianto', w: 56, b: true }, { t: 'Presente', w: 24, b: true }, { t: 'Anno', w: 24, b: true }, { t: 'Potenza (kW)', w: 26, b: true }, { t: 'Superficie (m2)', w: 56, b: true }], true);
+        v.rinnovabili.forEach(r => row([
+          { t: r.tipo === 'Altro' ? (r.tipoAltro || 'Altro') : (r.tipo || '-'), w: 56, b: true },
+          { t: r.presente, w: 24 }, { t: r.anno, w: 24 }, { t: r.potenza, w: 26 }, { t: r.superficie, w: 56 }
+        ]));
+      }
+
+      // ---- Planimetrie con tag
+      section('Planimetrie e tag fotografici');
+      const planPromises = v.piani.map(p => blobOrNull(p.fileId).then(d => d ? planWithTags(d, p.tags) : null));
+      return Promise.all(planPromises).then(plans => {
+        v.piani.forEach((p, pi) => {
+          const pl = plans[pi];
+          need(14);
+          doc.setFont('helvetica', 'bold'); doc.text(p.nome || ('Planimetria ' + (pi + 1)), M, y + 4); y += 7;
+          doc.setFont('helvetica', 'normal');
+          if (pl) {
+            let wImg = W, hImg = W * pl.h / pl.w;
+            const maxH = 150;
+            if (hImg > maxH) { hImg = maxH; wImg = maxH * pl.w / pl.h; }
+            need(hImg + 4);
+            doc.addImage(pl.data, 'JPEG', M + (W - wImg) / 2, y, wImg, hImg);
+            y += hImg + 4;
+          } else {
+            paragraph('Planimetria non disponibile.');
+          }
+          row([{ t: 'N° tag', w: 16, b: true }, { t: 'Ambiente', w: 56, b: true }, { t: 'Note', w: 80, b: true }, { t: 'Foto', w: 34, b: true }], true);
+          (p.tags || []).forEach(t => row([
+            { t: t.n, w: 16, b: true }, { t: altro(t.ambiente, t.ambienteAltro), w: 56 }, { t: t.note, w: 80 }, { t: (t.foto || []).length, w: 34 }
+          ]));
+        });
+        // Foto dei tag: griglia 3 per riga
+        const photoJobs = [];
+        v.piani.forEach(p => (p.tags || []).forEach(t => (t.foto || []).forEach(fid => photoJobs.push({ tag: t, fid }))));
+        if (!photoJobs.length) return null;
+        section('Fotografie dei tag');
+        const cols = 3, gap = 4, cw = (W - gap * (cols - 1)) / cols, ch = cw * 0.75;
+        let col = 0;
+        return photoJobs.reduce((chain, job) => chain.then(() => blobOrNull(job.fid).then(d => {
+          if (!d) return;
+          if (col === 0) need(ch + 9);
+          const x = M + col * (cw + gap);
+          doc.addImage(d, 'JPEG', x, y, cw, ch);
+          doc.setFontSize(7.5);
+          doc.text('Tag ' + job.tag.n + ' · ' + altro(job.tag.ambiente, job.tag.ambienteAltro), x, y + ch + 3.5);
+          doc.setFontSize(8.5);
+          col++;
+          if (col === cols) { col = 0; y += ch + 9; }
+        })), Promise.resolve()).then(() => { if (col > 0) y += ch + 9; });
+      }).then(() => {
+        // ---- Conferma e firma
+        section('Conferma di sopralluogo');
+        kv('Referente', fi.referente);
+        kv('In qualità di', altro(fi.qualita, fi.qualitaAltro));
+        kv('Tecnico', fi.tecnico);
+        kv('Data sopralluogo', dateIt(fi.data));
+        y += 2;
+        paragraph('Il sottoscritto ' + (fi.referente || '[nome del referente]') + ', in qualità di ' + altro(fi.qualita, fi.qualitaAltro).toLowerCase() +
+          ', dichiara che il tecnico ' + (fi.tecnico || '[nome del tecnico]') + " ha effettuato il sopralluogo presso l'immobile sopra descritto in data " + dateIt(fi.data) + '.');
+        return Promise.all([fi.docFronte, fi.docRetro, fi.img]).then(([front, back, sig]) => {
+          need(60);
+          doc.setFont('helvetica', 'bold'); doc.text('Documento di identità del referente (fronte / retro)', M, y + 4); y += 7;
+          if (front) doc.addImage(front, 'JPEG', M, y, 80, 52);
+          if (back) doc.addImage(back, 'JPEG', M + 88, y, 80, 52);
+          y += 56;
+          need(45);
+          doc.setFont('helvetica', 'bold'); doc.text('Firma del referente', M, y + 4); y += 7;
+          doc.rect(M, y, 70, 30);
+          if (sig) doc.addImage(sig, 'PNG', M + 1, y + 1, 68, 28);
+          y += 34;
+        });
+      }).then(() => {
+        const total = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= total; i++) {
+          doc.setPage(i);
+          doc.setFontSize(7);
+          doc.text('Sopralluogo: ' + (v.indirizzo || '') + '  ·  Pagina ' + i + ' di ' + total, M, PH - 6);
+        }
+        return doc;
+      });
+    });
+  }
+
+  function exportPdf() {
+    const id = currentId();
+    const v = findVisit(id);
+    if (!v) return;
+    const btn = document.getElementById('exportPdf');
+    if (btn) btn.disabled = true;
+    setStatus('Creazione PDF in corso…');
+    buildPdf(v).then(doc => {
+      const slug = (v.indirizzo || 'immobile').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const name = 'Sopralluogo_' + slug + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+      doc.save(name);
+      setStatus('PDF creato: ' + name + ' (cartella Download)');
+    }).catch(() => {
+      setStatus('Impossibile creare il PDF. Riprova.');
+    }).then(() => { if (btn) btn.disabled = false; });
+  }
+
   // ================= Eventi =================
   app.addEventListener('input', (e) => {
     const t = e.target;
@@ -704,6 +981,7 @@
       return;
     }
 
+    if (e.target.closest('#exportPdf')) { exportPdf(); return; }
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
     if (t.hasAttribute('data-open')) { sel = null; location.hash = '#/s/' + t.getAttribute('data-open'); return; }
