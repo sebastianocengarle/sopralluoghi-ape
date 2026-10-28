@@ -54,7 +54,7 @@
   .note { font-size:12px; color:var(--muted); text-align:center; }
 
   /* Planimetria */
-  .plan { position:relative; background:#fff; border:1px solid var(--line); border-radius:10px; overflow:auto; cursor:crosshair; touch-action:manipulation; }
+  .plan { position:relative; background:#fff; border:1px solid var(--line); border-radius:10px; overflow:auto; cursor:crosshair; touch-action:none; }
   .plan-inner { position:relative; width:100%; }
   .plan img { display:block; width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
   .plan .empty-plan { padding:40px 12px; text-align:center; color:var(--muted); font-size:14px; }
@@ -714,9 +714,9 @@
     renderDetail(currentId());
   }
 
-  // Zoom con doppio tocco, scorrimento a due dita e disegno a mano libero (pointer events: dito o pennino)
+  // Gesti sulla planimetria: due dita insieme = zoom e spostamento; un dito = scrittura (modalità appunti) o scorrimento se ingrandita
   const activePtr = new Map();
-  let lastTap = null, tapTimer = null, skipClickUntil = 0, panState = null, pendingDot = null;
+  let gesture = null, oneFinger = null, suppressClickUntil = 0;
   function inkPoint(el, e) {
     const r = el.getBoundingClientRect();
     const x = Math.min(1, Math.max(0, (e.clientX - r.left) / r.width));
@@ -726,21 +726,6 @@
   function updateLine(s) {
     s.line.setAttribute('points', s.pts.map(q => (q[0] * 1000) + ',' + (q[1] * 1000)).join(' '));
   }
-  function toggleZoom(pi, plan, cx, cy) {
-    const inner = plan.querySelector('.plan-inner');
-    if (!inner) return;
-    if ((zoomOf[pi] || 1) > 1) {
-      zoomOf[pi] = 1; inner.style.width = '100%';
-      plan.scrollLeft = 0; plan.scrollTop = 0;
-      scrollOf[pi] = { l: 0, t: 0 };
-      return;
-    }
-    const pr = plan.getBoundingClientRect(), ir = inner.getBoundingClientRect();
-    const fx = (cx - ir.left) / ir.width, fy = (cy - ir.top) / ir.height;
-    zoomOf[pi] = 2.5; inner.style.width = '250%';
-    plan.scrollLeft = fx * inner.offsetWidth - (cx - pr.left);
-    plan.scrollTop = fy * inner.offsetHeight - (cy - pr.top);
-  }
   function persistStroke(pi, pts) {
     updateVisit(currentId(), v => {
       const p = v.piani[pi];
@@ -748,20 +733,18 @@
       p.disegni.push({ pts: pts });
     });
   }
-  function flushPendingDot() {
-    if (!pendingDot) return;
-    clearTimeout(pendingDot.timer);
-    persistStroke(pendingDot.pi, pendingDot.pts);
-    pendingDot = null;
-  }
-  function dropPendingDot() {
-    if (!pendingDot) return;
-    clearTimeout(pendingDot.timer);
-    pendingDot.line.remove();
-    pendingDot = null;
-  }
   function cancelStroke() {
     if (inkStroke) { inkStroke.line.remove(); inkStroke = null; }
+  }
+  function startStroke(ov, id, x, y, fromGesture) {
+    const svg = ov.querySelector('svg');
+    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#D32F2F'); line.setAttribute('stroke-width', '3');
+    line.setAttribute('vector-effect', 'non-scaling-stroke'); line.setAttribute('stroke-linecap', 'round'); line.setAttribute('stroke-linejoin', 'round');
+    svg.appendChild(line);
+    inkStroke = { pi: Number(ov.getAttribute('data-ink-draw')), el: ov, line: line, pts: [inkPoint(ov, { clientX: x, clientY: y })], id: id, fromGesture: !!fromGesture };
+    try { ov.setPointerCapture(id); } catch (err) { /* il puntatore può non supportare la cattura */ }
+    updateLine(inkStroke);
   }
   function restorePlanScroll() {
     app.querySelectorAll('.plan[data-plan]').forEach(pl => {
@@ -774,72 +757,103 @@
     if (pl.classList && pl.classList.contains('plan')) scrollOf[Number(pl.getAttribute('data-plan'))] = { l: pl.scrollLeft, t: pl.scrollTop };
   }, true);
 
+  // Zoom a due dita: il punto della planimetria sotto il centro tra le dita resta fermo mentre le dita si muovono
+  function startGesture(plan) {
+    const pi = Number(plan.getAttribute('data-plan'));
+    const inner = plan.querySelector('.plan-inner');
+    const pts = [...activePtr.values()];
+    const mx = (pts[0].x + pts[1].x) / 2, my = (pts[0].y + pts[1].y) / 2;
+    const ir = inner.getBoundingClientRect();
+    gesture = {
+      pi: pi, plan: plan, inner: inner,
+      dist0: Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y)),
+      z0: zoomOf[pi] || 1,
+      fx: (mx - ir.left) / ir.width, fy: (my - ir.top) / ir.height
+    };
+    suppressClickUntil = Date.now() + 500;
+  }
+  function moveGesture() {
+    const pts = [...activePtr.values()];
+    const mx = (pts[0].x + pts[1].x) / 2, my = (pts[0].y + pts[1].y) / 2;
+    const dist = Math.max(1, Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y));
+    const z = Math.min(4, Math.max(1, gesture.z0 * dist / gesture.dist0));
+    const pr = gesture.plan.getBoundingClientRect();
+    zoomOf[gesture.pi] = z;
+    gesture.inner.style.width = (z * 100) + '%';
+    gesture.plan.scrollLeft = gesture.fx * gesture.inner.offsetWidth - (mx - pr.left);
+    gesture.plan.scrollTop = gesture.fy * gesture.inner.offsetHeight - (my - pr.top);
+  }
+
   app.addEventListener('pointerdown', (e) => {
     const plan = e.target.closest('.plan[data-plan]');
     if (!plan) return;
-    const pi = Number(plan.getAttribute('data-plan'));
-    const now = Date.now();
-    // Doppio tocco: zoom avanti/indietro (vale sia in modalità normale sia con il disegno attivo)
-    if (lastTap && lastTap.pi === pi && now - lastTap.t < 330 && Math.hypot(e.clientX - lastTap.x, e.clientY - lastTap.y) < 30 && !e.target.closest('[data-pin]')) {
-      lastTap = null;
-      e.preventDefault();
-      clearTimeout(tapTimer);
-      skipClickUntil = now + 300;
-      dropPendingDot(); cancelStroke();
-      toggleZoom(pi, plan, e.clientX, e.clientY);
-      return;
-    }
-    lastTap = { pi: pi, t: now, x: e.clientX, y: e.clientY };
-    activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY, plan: plan });
     if (activePtr.size >= 2) {
-      // Due dita: scorrimento della planimetria, senza tratto
+      // Secondo dito: nessun tratto, si passa al gesto di zoom
       cancelStroke();
-      const pts = [...activePtr.values()];
-      panState = { plan: plan, mx: (pts[0].x + pts[1].x) / 2, my: (pts[0].y + pts[1].y) / 2 };
+      oneFinger = null;
+      e.preventDefault();
+      if (!gesture) startGesture(plan);
       return;
     }
     const ov = e.target.closest('[data-ink-draw]');
-    if (!ov) return;
-    e.preventDefault();
-    flushPendingDot();
-    const svg = ov.querySelector('svg');
-    const line = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-    line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#D32F2F'); line.setAttribute('stroke-width', '3');
-    line.setAttribute('vector-effect', 'non-scaling-stroke'); line.setAttribute('stroke-linecap', 'round'); line.setAttribute('stroke-linejoin', 'round');
-    svg.appendChild(line);
-    inkStroke = { pi: pi, el: ov, line: line, pts: [inkPoint(ov, e)], id: e.pointerId };
-    ov.setPointerCapture(e.pointerId);
-    updateLine(inkStroke);
-  });
-  app.addEventListener('pointermove', (e) => {
-    if (activePtr.has(e.pointerId)) activePtr.set(e.pointerId, { x: e.clientX, y: e.clientY });
-    if (panState && activePtr.size >= 2) {
-      const pts = [...activePtr.values()];
-      const mx = (pts[0].x + pts[1].x) / 2, my = (pts[0].y + pts[1].y) / 2;
-      panState.plan.scrollLeft -= mx - panState.mx;
-      panState.plan.scrollTop -= my - panState.my;
-      panState.mx = mx; panState.my = my;
+    if (ov) {
+      e.preventDefault();
+      startStroke(ov, e.pointerId, e.clientX, e.clientY, false);
       return;
     }
-    if (!inkStroke || e.pointerId !== inkStroke.id) return;
-    const pt = inkPoint(inkStroke.el, e);
-    const last = inkStroke.pts[inkStroke.pts.length - 1];
-    if (pt[0] !== last[0] || pt[1] !== last[1]) { inkStroke.pts.push(pt); updateLine(inkStroke); }
+    oneFinger = { id: e.pointerId, plan: plan, x: e.clientX, y: e.clientY, moved: false };
   });
+
+  app.addEventListener('pointermove', (e) => {
+    const cur = activePtr.get(e.pointerId);
+    if (cur) { cur.x = e.clientX; cur.y = e.clientY; }
+    if (gesture && activePtr.size >= 2) { moveGesture(); return; }
+    if (inkStroke && e.pointerId === inkStroke.id) {
+      const pt = inkPoint(inkStroke.el, e);
+      const last = inkStroke.pts[inkStroke.pts.length - 1];
+      if (pt[0] !== last[0] || pt[1] !== last[1]) { inkStroke.pts.push(pt); updateLine(inkStroke); }
+      return;
+    }
+    if (oneFinger && e.pointerId === oneFinger.id) {
+      const dx = e.clientX - oneFinger.x, dy = e.clientY - oneFinger.y;
+      if (!oneFinger.moved && Math.hypot(e.clientX - oneFinger.x, e.clientY - oneFinger.y) > 8) oneFinger.moved = true;
+      const pi = Number(oneFinger.plan.getAttribute('data-plan'));
+      if (oneFinger.moved && (zoomOf[pi] || 1) > 1) {
+        oneFinger.plan.scrollLeft -= dx;
+        oneFinger.plan.scrollTop -= dy;
+      }
+      oneFinger.x = e.clientX; oneFinger.y = e.clientY;
+    }
+  });
+
   function endPointer(e) {
     activePtr.delete(e.pointerId);
-    if (activePtr.size < 2) panState = null;
-    if (!inkStroke || e.pointerId !== inkStroke.id) return;
-    const s = inkStroke; inkStroke = null;
-    if (s.pts.length === 1) {
-      // Un solo punto: lo tengo in sospeso per un attimo, perché potrebbe essere il primo di un doppio tocco
-      flushPendingDot();
-      pendingDot = { pi: s.pi, pts: [s.pts[0], s.pts[0]], line: s.line, timer: null };
-      pendingDot.timer = setTimeout(flushPendingDot, 330);
+    if (gesture) {
+      if (activePtr.size < 2) {
+        gesture = null;
+        suppressClickUntil = Date.now() + 500;
+        // Alzato un dito: l'altro scrive (se è attiva la modalità appunti)
+        if (activePtr.size === 1) {
+          const [id, pos] = [...activePtr.entries()][0];
+          const pi = Number(pos.plan.getAttribute('data-plan'));
+          const ov = pos.plan.querySelector('[data-ink-draw]');
+          if (ov && drawMode === pi) startStroke(ov, id, pos.x, pos.y, true);
+        }
+      }
       return;
     }
-    flushPendingDot();
-    persistStroke(s.pi, s.pts);
+    if (inkStroke && e.pointerId === inkStroke.id) {
+      const s = inkStroke; inkStroke = null;
+      if (s.fromGesture && s.pts.length === 1) { s.line.remove(); return; }
+      const pts = s.pts.length === 1 ? [s.pts[0], s.pts[0]] : s.pts;
+      persistStroke(s.pi, pts);
+      return;
+    }
+    if (oneFinger && e.pointerId === oneFinger.id) {
+      if (oneFinger.moved) suppressClickUntil = Date.now() + 300;
+      oneFinger = null;
+    }
   }
   app.addEventListener('pointerup', endPointer);
   app.addEventListener('pointercancel', endPointer);
@@ -1203,12 +1217,8 @@
       const rect = img.getBoundingClientRect();
       const x = (e.clientX - rect.left) / rect.width;
       const y = (e.clientY - rect.top) / rect.height;
-      if (Date.now() < skipClickUntil) return;
-      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) {
-        const px = +x.toFixed(4), py = +y.toFixed(4);
-        clearTimeout(tapTimer);
-        tapTimer = setTimeout(() => openModeSheet(pi, px, py), 330);
-      }
+      if (Date.now() < suppressClickUntil) return;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) openModeSheet(pi, +x.toFixed(4), +y.toFixed(4));
       return;
     }
     const ink = e.target.closest('[data-ink]');
