@@ -11,9 +11,10 @@ Web app installabile (PWA) per la raccolta dei dati di sopralluogo per gli Attes
 
 ## Stato
 
-- Versione di prova: elenco dei sopralluoghi, scheda con Generali, Involucro, Serramenti, Impianti e Firma (con foto del documento).
+- Versione di prova: elenco dei sopralluoghi; scheda con Generali, Involucro, Serramenti, Impianti, Rinnovabili, Planimetria (tag e foto) e Firma (con foto del documento).
 - Dati salvati sul telefono (localStorage), senza sincronizzazione. Le foto del documento occupano più spazio: con molti sopralluoghi conviene passare a IndexedDB.
-- Da fare: planimetria con tag foto, sincronizzazione con Google Drive, esportazione PDF, campi mancanti (ACS, raffrescamento, ventilazione, superfici).
+- Foto e planimetrie sono salvate in IndexedDB sul telefono. Le planimetrie PDF usano pdf.js dal CDN (serve connessione alla prima apertura).
+- Da fare: sincronizzazione con Google Drive, esportazione PDF, campi mancanti (ACS, raffrescamento, ventilazione, superfici).
 
 ## Sviluppo locale
 

@@ -44,7 +44,6 @@
   .chips label { font-size:14px; color:var(--ink); border:1px solid #cfcbbf; border-radius:999px; padding:8px 14px; background:#fff; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
   .chips input { margin:0; width:16px; height:16px; accent-color:var(--indigo); }
   .row2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
-  .add { margin-top:2px; }
   .thumb { width:100%; height:130px; border:1px dashed var(--indigo); border-radius:10px; background:#f7f9fa; display:flex; align-items:center; justify-content:center; color:var(--indigo); font-size:14px; overflow:hidden; position:relative; cursor:pointer; }
   .thumb img { width:100%; height:100%; object-fit:cover; }
   .thumb input { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
@@ -52,8 +51,20 @@
   .sigbox canvas { width:100%; height:100%; display:block; border-radius:10px; }
   .sigbox .hint { position:absolute; left:12px; bottom:10px; font-size:12px; color:var(--muted); pointer-events:none; }
   .ok { font-size:13px; color:var(--indigo); min-height:18px; }
-  .spacer { height:0; }
   .note { font-size:12px; color:var(--muted); text-align:center; }
+
+  /* Planimetria */
+  .plan { position:relative; background:#fff; border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:crosshair; touch-action:manipulation; }
+  .plan img { display:block; width:100%; height:auto; user-select:none; -webkit-user-drag:none; }
+  .plan .empty-plan { padding:40px 12px; text-align:center; color:var(--muted); font-size:14px; }
+  .pin { position:absolute; width:28px; height:28px; margin:-14px 0 0 -14px; border-radius:50%; background:var(--indigo); color:#fff; font-size:13px; font-weight:700; display:flex; align-items:center; justify-content:center; border:2px solid #fff; box-shadow:0 1px 3px rgba(0,0,0,.35); cursor:pointer; }
+  .pin.on { background:var(--saffron); color:var(--indigo); }
+  .photos { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .photos .ph { position:relative; border-radius:8px; overflow:hidden; background:#eee; aspect-ratio:4/3; }
+  .photos .ph img { width:100%; height:100%; object-fit:cover; display:block; }
+  .photos .ph button { position:absolute; top:4px; right:4px; width:26px; height:26px; border-radius:50%; border:0; background:rgba(31,36,33,.75); color:#fff; font-size:15px; line-height:26px; padding:0; cursor:pointer; }
+  .photo-add { position:relative; border:1px dashed var(--indigo); border-radius:8px; height:92px; display:flex; align-items:center; justify-content:center; color:var(--indigo); font-size:14px; cursor:pointer; overflow:hidden; }
+  .photo-add input { position:absolute; inset:0; opacity:0; width:100%; height:100%; cursor:pointer; }
 
   #sheet { position:fixed; inset:0; background:rgba(31,36,33,.45); display:none; align-items:flex-end; z-index:10; }
   #sheet.open { display:flex; }
@@ -85,31 +96,28 @@
 <script>
 (function () {
   'use strict';
+
+  // ================= Costanti =================
   const KEY = 'sopralluoghi_v1';
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+  const PDFJS_WORKER = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
   const TABS = [
     { id: 'generali', label: 'Generali' },
     { id: 'involucro', label: 'Involucro' },
     { id: 'serramenti', label: 'Serramenti' },
     { id: 'impianti', label: 'Impianti' },
+    { id: 'rinnovabili', label: 'Rinnovabili' },
+    { id: 'planimetria', label: 'Planimetria' },
     { id: 'firma', label: 'Firma' }
   ];
 
-  // ---------- Dati ----------
-  function loadAll() {
-    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
-  }
-  function saveAll(items) {
-    try { localStorage.setItem(KEY, JSON.stringify(items)); return true; }
-    catch (e) { return false; }
-  }
-  function findVisit(id) { return loadAll().find(v => String(v.id) === String(id)); }
-  function updateVisit(id, mutator) {
-    const items = loadAll();
-    const v = items.find(x => String(x.id) === String(id));
-    if (!v) return;
-    mutator(v);
-    if (!saveAll(items)) setStatus('Spazio di archiviazione pieno: alcune modifiche non sono salvate.');
-  }
+  // ================= Modelli dati =================
+  function blankWall() { return { descrizione: '', spessore: '', isolamento: '', spessoreIsolante: '', disperdenza: '' }; }
+  function blankStruct() { return { descrizione: '', isolamento: '', spessoreIsolante: '', confine: '', confineAltro: '' }; }
+  function blankWindow() { return { materiale: '', materialeAltro: '', vetro: '', vetroAltro: '', oscuranti: [] }; }
+  function blankGen() { return { tipologia: '', tipologiaAltro: '', combustibile: '', combustibileAltro: '', potenza: '', anno: '' }; }
+  function blankRinn() { return { tipo: '', tipoAltro: '', presente: '', anno: '', potenza: '', superficie: '' }; }
+
   function newVisit(indirizzo) {
     return {
       id: Date.now(),
@@ -125,23 +133,20 @@
       serramenti: [ blankWindow() ],
       generatori: [ blankGen() ],
       impianti: { emissione: '', emissioneAltro: '', regolazioneTipo: [], regolazioneCar: [] },
+      rinnovabili: [],
+      piani: [],
       firma: { referente: '', qualita: '', qualitaAltro: '', tecnico: '', data: '', img: '', docFronte: '', docRetro: '' }
     };
   }
-  function blankWall() { return { descrizione: '', spessore: '', isolamento: '', spessoreIsolante: '', disperdenza: '' }; }
-  function blankStruct() { return { descrizione: '', isolamento: '', spessoreIsolante: '', confine: '', confineAltro: '' }; }
-  function blankWindow() { return { materiale: '', materialeAltro: '', vetro: '', vetroAltro: '', oscuranti: [] }; }
-  function blankGen() { return { tipologia: '', tipologiaAltro: '', combustibile: '', combustibileAltro: '', potenza: '', anno: '' }; }
 
-  // Gruppi ripetibili: chiave dati, titolo, etichetta, funzione per nuova voce, campi
   const GROUPS = {
-    pareti:     { title: 'Pareti',                    item: 'Parete',    make: blankWall,
-                  fields: 'wall' },
-    pavimenti:  { title: 'Pavimento',                 item: 'Pavimento', make: blankStruct, fields: 'struct' },
-    solai:      { title: 'Solaio interpiano',         item: 'Solaio',    make: blankStruct, fields: 'struct' },
-    coperture:  { title: 'Copertura (o ultimo solaio)', item: 'Copertura', make: blankStruct, fields: 'struct' },
-    serramenti: { title: 'Serramenti',                item: 'Serramento', make: blankWindow, fields: 'window' },
-    generatori: { title: 'Generatori di calore',      item: 'Generatore', make: blankGen, fields: 'gen' }
+    pareti:     { title: 'Pareti', item: 'Parete', make: blankWall },
+    pavimenti:  { title: 'Pavimento', item: 'Pavimento', make: blankStruct },
+    solai:      { title: 'Solaio interpiano', item: 'Solaio', make: blankStruct },
+    coperture:  { title: 'Copertura (o ultimo solaio)', item: 'Copertura', make: blankStruct },
+    serramenti: { title: 'Serramenti', item: 'Serramento', make: blankWindow },
+    generatori: { title: 'Generatori di calore', item: 'Generatore', make: blankGen },
+    rinnovabili:{ title: 'Rinnovabili e altri impianti', item: 'Impianto', make: blankRinn }
   };
 
   const OPT = {
@@ -157,26 +162,126 @@
     regolazioneTipo: ['Di zona', 'Climatica', 'Per singolo ambiente'],
     regolazioneCar: ['Termostato', 'Valvola termostatica', 'Termoregolazione evoluta'],
     intervento: ['Nuova costruzione', 'Passaggio proprietà', 'Locazione', 'Riqualificazione energetica'],
-    qualita: ['Proprietario', 'Incaricato alla vendita', 'Referente proprietario', 'Altro']
+    qualita: ['Proprietario', 'Incaricato alla vendita', 'Referente proprietario', 'Altro'],
+    rinnTipo: ['Fotovoltaico', 'Solare termico', 'Stufa a pellet', 'Caminetto', 'Pompa di calore', 'Altro'],
+    presente: ['SI', 'NO'],
+    ambiente: ['Soggiorno', 'Cucina', 'Camera', 'Bagno', 'Ingresso', 'Corridoio', 'Cantina', 'Locale tecnico', 'Garage', 'Balcone', 'Altro']
   };
 
-  // ---------- Stato UI ----------
-  let tab = 'generali';
+  // ================= Archiviazione =================
+  function loadAll() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
+  }
+  function saveAll(items) {
+    try { localStorage.setItem(KEY, JSON.stringify(items)); return true; }
+    catch (e) { return false; }
+  }
+  function findVisit(id) { return loadAll().find(v => String(v.id) === String(id)); }
+  function updateVisit(id, mutator) {
+    const items = loadAll();
+    const v = items.find(x => String(x.id) === String(id));
+    if (!v) return;
+    mutator(v);
+    if (!saveAll(items)) setStatus('Spazio di archiviazione pieno: alcune modifiche non sono salvate.');
+  }
+
+  // IndexedDB per foto e planimetrie (file troppo grandi per localStorage)
+  let dbPromise = null;
+  function openDb() {
+    if (!dbPromise) {
+      dbPromise = new Promise((resolve, reject) => {
+        const r = indexedDB.open('sopralluoghi-db', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('blobs');
+        r.onsuccess = () => resolve(r.result);
+        r.onerror = () => reject(r.error);
+      });
+    }
+    return dbPromise;
+  }
+  function putBlob(id, blob) {
+    return openDb().then(db => new Promise((resolve, reject) => {
+      const tx = db.transaction('blobs', 'readwrite');
+      tx.objectStore('blobs').put(blob, id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    }));
+  }
+  function getBlob(id) {
+    return openDb().then(db => new Promise((resolve, reject) => {
+      const q = db.transaction('blobs', 'readonly').objectStore('blobs').get(id);
+      q.onsuccess = () => resolve(q.result);
+      q.onerror = () => reject(q.error);
+    }));
+  }
+  function delBlob(id) {
+    return openDb().then(db => new Promise((resolve) => {
+      const tx = db.transaction('blobs', 'readwrite');
+      tx.objectStore('blobs').delete(id);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+    })).catch(() => {});
+  }
+  function newId(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+
+  // Riduce un'immagine e restituisce un Blob JPEG
+  function shrinkBlob(blobOrFile, maxSide, quality) {
+    return new Promise((resolve, reject) => {
+      const url = URL.createObjectURL(blobOrFile);
+      const img = new Image();
+      img.onload = () => {
+        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(img.width * scale);
+        c.height = Math.round(img.height * scale);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        c.toBlob(b => b ? resolve(b) : reject(new Error('blob')), 'image/jpeg', quality);
+      };
+      img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('img')); };
+      img.src = url;
+    });
+  }
+
+  // PDF: prima pagina come immagine (pdf.js caricato solo quando serve)
+  let pdfReady = null;
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    if (!pdfReady) {
+      pdfReady = new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = PDFJS;
+        s.onload = () => { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER; resolve(window.pdfjsLib); };
+        s.onerror = () => reject(new Error('pdf.js'));
+        document.head.appendChild(s);
+      });
+    }
+    return pdfReady;
+  }
+  function pdfFirstPageBlob(file) {
+    return loadPdfJs().then(lib => file.arrayBuffer().then(buf => lib.getDocument({ data: buf }).promise))
+      .then(pdf => pdf.getPage(1))
+      .then(page => {
+        const vp = page.getViewport({ scale: 2 });
+        const c = document.createElement('canvas');
+        c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+        return page.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise.then(() =>
+          new Promise((resolve, reject) => c.toBlob(b => b ? resolve(b) : reject(new Error('pdf')), 'image/jpeg', 0.85)));
+      });
+  }
+
+  // ================= UI helpers =================
   const app = document.getElementById('app');
+  let tab = 'generali';
+  let sel = null; // { piano: index, tag: index }
 
   function esc(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
-  function setStatus(msg) {
-    const el = document.getElementById('status');
-    if (el) el.textContent = msg;
-  }
+  function setStatus(msg) { const el = document.getElementById('status'); if (el) el.textContent = msg; }
+  function currentId() { const m = location.hash.match(/^#\/s\/(\d+)/); return m ? m[1] : null; }
 
-  // ---------- Campi ----------
   function field(label, inner) { return '<label class="f">' + esc(label) + inner + '</label>'; }
-  function input(attrs, value, type) {
-    return '<input class="t" type="' + (type || 'text') + '" ' + attrs + ' value="' + esc(value) + '">';
-  }
+  function input(attrs, value, type) { return '<input class="t" type="' + (type || 'text') + '" ' + attrs + ' value="' + esc(value) + '">'; }
   function numInput(attrs, value) { return '<input class="t" type="number" inputmode="decimal" min="0" step="any" ' + attrs + ' value="' + esc(value) + '">'; }
   function select(attrs, options, value) {
     let h = '<select class="t" ' + attrs + '><option value="">Scegli…</option>';
@@ -189,11 +294,9 @@
       '<label><input type="checkbox" ' + attrs + ' value="' + esc(o) + '"' + (values.indexOf(o) >= 0 ? ' checked' : '') + '>' + esc(o) + '</label>'
     ).join('') + '</div>';
   }
-  function altroField(attrs, value) {
-    return field('Altro (specificare)', input(attrs, value));
-  }
+  function altroField(attrs, value) { return field('Altro (specificare)', input(attrs, value)); }
 
-  // ---------- Viste ----------
+  // ================= Viste =================
   function renderList() {
     const items = loadAll();
     let h = '<header class="top"><div><div class="sub">Attestati di prestazione energetica</div><h1>Sopralluoghi</h1></div></header>';
@@ -213,6 +316,8 @@
   function renderDetail(id) {
     const v = findVisit(id);
     if (!v) { location.hash = ''; return; }
+    v.rinnovabili = v.rinnovabili || [];
+    v.piani = v.piani || [];
     let h = '<header class="top"><button class="back" id="back" type="button">‹ Elenco</button>' +
             '<div><div class="sub">Sopralluogo</div><h1>' + esc(v.indirizzo || 'Immobile') + '</h1></div></header>';
     h += '<nav class="tabs">' + TABS.map(t => '<button type="button" data-tab="' + t.id + '"' + (t.id === tab ? ' class="on"' : '') + '>' + t.label + '</button>').join('') + '</nav>';
@@ -221,27 +326,30 @@
     app.innerHTML = h;
     const sig = app.querySelector('#sig');
     if (sig) initSignature(sig, v);
+    hydrateBlobs();
   }
 
   function tabHtml(v) {
-    if (tab === 'generali') return generaliHtml(v);
-    if (tab === 'involucro') return involucroHtml(v);
-    if (tab === 'serramenti') return serramentiHtml(v);
-    if (tab === 'impianti') return impiantiHtml(v);
-    return firmaHtml(v);
+    switch (tab) {
+      case 'generali': return generaliHtml(v);
+      case 'involucro': return involucroHtml(v);
+      case 'serramenti': return serramentiHtml(v);
+      case 'impianti': return impiantiHtml(v);
+      case 'rinnovabili': return rinnovabiliHtml(v);
+      case 'planimetria': return planimetriaHtml(v);
+      default: return firmaHtml(v);
+    }
   }
 
   function generaliHtml(v) {
     const g = v.generali;
     const f = (k) => 'data-g="generali" data-f="' + k + '"';
-    return '<div class="sec-title">Proprietario</div>' +
-      '<div class="unit">' +
+    return '<div class="sec-title">Proprietario</div><div class="unit">' +
         field('Nome e cognome', input(f('nome'), g.nome)) +
         field('Telefono / e-mail', input(f('telefono'), g.telefono)) +
         field('Codice fiscale / P.IVA', input(f('cf'), g.cf)) +
       '</div>' +
-      '<div class="sec-title">Immobile</div>' +
-      '<div class="unit">' +
+      '<div class="sec-title">Immobile</div><div class="unit">' +
         field('Indirizzo edificio', input(f('indirizzoEdificio'), g.indirizzoEdificio)) +
         '<div class="row2">' + field('Foglio', input(f('foglio'), g.foglio)) + field('Mappale', input(f('mappale'), g.mappale)) + '</div>' +
         field('Subalterno', input(f('sub'), g.sub)) +
@@ -252,15 +360,6 @@
       '</div>';
   }
 
-  function structFields(kind, item, i) {
-    const a = 'data-g="' + kind + '" data-i="' + i + '" data-f="';
-    let h = field('Descrizione', input(a + 'descrizione"', item.descrizione));
-    h += '<div class="sec-title" style="margin:4px 0 -4px">Isolamento</div>';
-    h += field('Presenza e tipo', select(a + 'isolamento"', OPT.isolamento, item.isolamento));
-    h += field('Spessore isolante (cm)', numInput(a + 'spessoreIsolante"', item.spessoreIsolante));
-    return h;
-  }
-
   function wallFields(item, i) {
     const a = 'data-g="pareti" data-i="' + i + '" data-f="';
     return field('Descrizione', input(a + 'descrizione"', item.descrizione)) +
@@ -269,34 +368,44 @@
       field('Isolamento', select(a + 'isolamento"', OPT.isolamento, item.isolamento)) +
       field('Disperdenza', select(a + 'disperdenza"', OPT.disperdenza, item.disperdenza));
   }
-
-  function confineFields(kind, item, i) {
+  function structFields(kind, item, i) {
     const a = 'data-g="' + kind + '" data-i="' + i + '" data-f="';
-    return field('Confine', select(a + 'confine"', OPT.confine, item.confine)) +
-           altroField(a + 'confineAltro"', item.confineAltro);
+    return field('Descrizione', input(a + 'descrizione"', item.descrizione)) +
+      field('Isolamento', select(a + 'isolamento"', OPT.isolamento, item.isolamento)) +
+      field('Spessore isolante (cm)', numInput(a + 'spessoreIsolante"', item.spessoreIsolante)) +
+      field('Confine', select(a + 'confine"', OPT.confine, item.confine)) +
+      altroField(a + 'confineAltro"', item.confineAltro);
   }
-
   function windowFields(item, i) {
     const a = 'data-g="serramenti" data-i="' + i + '" data-f="';
     return field('Materiale', select(a + 'materiale"', OPT.materiale, item.materiale)) +
-           altroField(a + 'materialeAltro"', item.materialeAltro) +
-           field('Vetro', select(a + 'vetro"', OPT.vetro, item.vetro)) +
-           altroField(a + 'vetroAltro"', item.vetroAltro) +
-           '<div class="sec-title" style="margin:4px 0 -4px">Oscuranti</div>' +
-           checks('data-g="serramenti" data-i="' + i + '" data-f="oscuranti" data-multi="1"', OPT.oscuranti, item.oscuranti);
+      altroField(a + 'materialeAltro"', item.materialeAltro) +
+      field('Vetro', select(a + 'vetro"', OPT.vetro, item.vetro)) +
+      altroField(a + 'vetroAltro"', item.vetroAltro) +
+      '<div class="sec-title" style="margin:4px 0 -4px">Oscuranti</div>' +
+      checks('data-g="serramenti" data-i="' + i + '" data-f="oscuranti" data-multi="1"', OPT.oscuranti, item.oscuranti);
   }
-
   function genFields(item, i) {
     const a = 'data-g="generatori" data-i="' + i + '" data-f="';
     return field('Tipologia generatore', select(a + 'tipologia"', OPT.tipologiaGen, item.tipologia)) +
-           altroField(a + 'tipologiaAltro"', item.tipologiaAltro) +
-           field('Combustibile', select(a + 'combustibile"', OPT.combustibile, item.combustibile)) +
-           altroField(a + 'combustibileAltro"', item.combustibileAltro) +
-           '<div class="row2">' + field('Potenza (kW)', numInput(a + 'potenza"', item.potenza)) +
-           field('Anno installazione', numInput(a + 'anno"', item.anno)) + '</div>';
+      altroField(a + 'tipologiaAltro"', item.tipologiaAltro) +
+      field('Combustibile', select(a + 'combustibile"', OPT.combustibile, item.combustibile)) +
+      altroField(a + 'combustibileAltro"', item.combustibileAltro) +
+      '<div class="row2">' + field('Potenza (kW)', numInput(a + 'potenza"', item.potenza)) +
+      field('Anno installazione', numInput(a + 'anno"', item.anno)) + '</div>';
+  }
+  function rinnFields(item, i) {
+    const a = 'data-g="rinnovabili" data-i="' + i + '" data-f="';
+    return field('Tipo di impianto', select(a + 'tipo"', OPT.rinnTipo, item.tipo)) +
+      altroField(a + 'tipoAltro"', item.tipoAltro) +
+      field('Presente', select(a + 'presente"', OPT.presente, item.presente)) +
+      '<div class="row2">' + field('Anno installazione', numInput(a + 'anno"', item.anno)) +
+      field('Potenza (kW)', numInput(a + 'potenza"', item.potenza)) + '</div>' +
+      field('Superficie (m²), solo solare termico', numInput(a + 'superficie"', item.superficie));
   }
 
-  function groupHtml(key, fieldFn, title, itemLabel, list, addLabel) {
+  function groupHtml(key, fieldFn, title, list, addLabel) {
+    const itemLabel = GROUPS[key].item;
     let h = '<div class="sec-title">' + esc(title) + '</div>';
     list.forEach((item, i) => {
       const name = (key === 'pareti' && i === 0) ? 'Parete principale' : (itemLabel + ' ' + (i + 1));
@@ -304,35 +413,81 @@
            (list.length > 1 ? '<button class="danger" type="button" data-del="' + key + '" data-i="' + i + '">Rimuovi</button>' : '') +
            '</div>' + fieldFn(item, i) + '</div>';
     });
-    h += '<button class="link add" type="button" data-add="' + key + '">+ ' + esc(addLabel) + '</button>';
+    h += '<button class="link" type="button" data-add="' + key + '">+ ' + esc(addLabel) + '</button>';
     return h;
   }
 
   function involucroHtml(v) {
-    let h = '';
-    h += groupHtml('pareti', wallFields, 'Pareti', 'Parete', v.pareti, 'Aggiungi parete');
-    h += groupHtml('pavimenti', (it, i) => structFields('pavimenti', it, i) + confineFields('pavimenti', it, i), 'Pavimento', 'Pavimento', v.pavimenti, 'Aggiungi pavimento');
-    h += groupHtml('solai', (it, i) => structFields('solai', it, i) + confineFields('solai', it, i), 'Solaio interpiano', 'Solaio', v.solai, 'Aggiungi solaio interpiano');
-    h += groupHtml('coperture', (it, i) => structFields('coperture', it, i) + confineFields('coperture', it, i), 'Copertura (o ultimo solaio)', 'Copertura', v.coperture, 'Aggiungi copertura');
+    return groupHtml('pareti', wallFields, 'Pareti', v.pareti, 'Aggiungi parete') +
+      groupHtml('pavimenti', (it, i) => structFields('pavimenti', it, i), 'Pavimento', v.pavimenti, 'Aggiungi pavimento') +
+      groupHtml('solai', (it, i) => structFields('solai', it, i), 'Solaio interpiano', v.solai, 'Aggiungi solaio interpiano') +
+      groupHtml('coperture', (it, i) => structFields('coperture', it, i), 'Copertura (o ultimo solaio)', v.coperture, 'Aggiungi copertura');
+  }
+  function serramentiHtml(v) {
+    return groupHtml('serramenti', windowFields, 'Serramenti', v.serramenti, 'Aggiungi serramento');
+  }
+  function impiantiHtml(v) {
+    const im = v.impianti;
+    return groupHtml('generatori', genFields, 'Generatori di calore', v.generatori, 'Aggiungi generatore') +
+      '<div class="sec-title">Impianto di emissione</div><div class="unit">' +
+        field('Tipo impianto', select('data-g="impianti" data-f="emissione"', OPT.emissione, im.emissione)) +
+        altroField('data-g="impianti" data-f="emissioneAltro"', im.emissioneAltro) + '</div>' +
+      '<div class="sec-title">Regolazione</div><div class="unit">' +
+        '<div style="font-size:12px;color:var(--muted)">Tipo di regolazione</div>' +
+        checks('data-g="impianti" data-f="regolazioneTipo" data-multi="1"', OPT.regolazioneTipo, im.regolazioneTipo) +
+        '<div style="font-size:12px;color:var(--muted);margin-top:6px">Caratteristiche</div>' +
+        checks('data-g="impianti" data-f="regolazioneCar" data-multi="1"', OPT.regolazioneCar, im.regolazioneCar) +
+      '</div>';
+  }
+  function rinnovabiliHtml(v) {
+    const intro = '<div class="note" style="text-align:left">Fotovoltaico, solare termico, stufa a pellet, caminetto, pompe di calore e altri impianti presenti nell’immobile.</div>';
+    return intro + groupHtml('rinnovabili', rinnFields, 'Impianti', v.rinnovabili, 'Aggiungi impianto');
+  }
+
+  // ---------- Planimetria e foto ----------
+  function tagsOf(v, pi) { return v.piani[pi].tags || []; }
+
+  function planimetriaHtml(v) {
+    let h = '<div class="sec-title">Planimetrie</div>';
+    if (!v.piani.length) {
+      h += '<div class="unit"><div class="empty-plan" style="padding:12px 0">Carica la planimetria di un piano (immagine o PDF), poi tocca il disegno per aggiungere i tag fotografici.</div></div>';
+    }
+    v.piani.forEach((p, pi) => {
+      h += '<div class="unit"><div class="head"><b>Planimetria ' + (pi + 1) + '</b>' +
+           '<button class="danger" type="button" data-delpiano="' + pi + '">Rimuovi planimetria</button></div>' +
+           field('Nome del piano', input('data-g="piani" data-i="' + pi + '" data-f="nome"', p.nome)) +
+           '<div class="plan" data-plan="' + pi + '">' +
+             (p.fileId ? '<img alt="Planimetria" data-blob-id="' + esc(p.fileId) + '" data-plan-img="' + pi + '">' : '<div class="empty-plan">File non disponibile</div>') +
+             (p.tags || []).map((t, ti) => {
+               const on = sel && sel.piano === pi && sel.tag === ti;
+               return '<div class="pin' + (on ? ' on' : '') + '" data-pin="' + pi + '" data-tag="' + ti + '" style="left:' + (t.x * 100) + '%;top:' + (t.y * 100) + '%">' + esc(t.n) + '</div>';
+             }).join('') +
+           '</div>' +
+           '<div style="font-size:12px;color:var(--muted)">Tocca la planimetria per aggiungere un tag.</div>' +
+           '</div>';
+      if (sel && sel.piano === pi && p.tags && p.tags[sel.tag]) h += tagPanelHtml(p, pi, sel.tag);
+    });
+    h += '<div class="thumb" style="height:72px">+ Carica planimetria (immagine o PDF)' +
+         '<input type="file" accept="image/*,application/pdf" data-upload-piano aria-label="Carica planimetria"></div>';
     return h;
   }
 
-  function serramentiHtml(v) {
-    return groupHtml('serramenti', windowFields, 'Serramenti', 'Serramento', v.serramenti, 'Aggiungi serramento');
-  }
-
-  function impiantiHtml(v) {
-    const im = v.impianti;
-    let h = groupHtml('generatori', genFields, 'Generatori di calore', 'Generatore', v.generatori, 'Aggiungi generatore');
-    h += '<div class="sec-title">Impianto di emissione</div><div class="unit">' +
-         field('Tipo impianto', select('data-g="impianti" data-f="emissione"', OPT.emissione, im.emissione)) +
-         altroField('data-g="impianti" data-f="emissioneAltro"', im.emissioneAltro) + '</div>';
-    h += '<div class="sec-title">Regolazione</div><div class="unit">' +
-         '<div class="f" style="font-size:12px;color:var(--muted)">Tipo di regolazione</div>' +
-         checks('data-g="impianti" data-f="regolazioneTipo" data-multi="1"', OPT.regolazioneTipo, im.regolazioneTipo) +
-         '<div class="f" style="font-size:12px;color:var(--muted);margin-top:6px">Caratteristiche</div>' +
-         checks('data-g="impianti" data-f="regolazioneCar" data-multi="1"', OPT.regolazioneCar, im.regolazioneCar) +
-         '</div>';
+  function tagPanelHtml(p, pi, ti) {
+    const t = p.tags[ti];
+    const a = 'data-g="tag" data-pi="' + pi + '" data-ti="' + ti + '" data-f="';
+    let h = '<div class="sec-title">Tag ' + esc(t.n) + '</div><div class="unit">' +
+      field('Ambiente', select(a + 'ambiente"', OPT.ambiente, t.ambiente)) +
+      altroField(a + 'ambienteAltro"', t.ambienteAltro) +
+      field('Note', '<textarea class="t" ' + a + 'note" rows="2">' + esc(t.note) + '</textarea>') +
+      '<div class="sec-title" style="margin:4px 0 -4px">Foto (' + (t.foto || []).length + ')</div>' +
+      '<div class="photos">' + (t.foto || []).map((fid, fi) =>
+        '<div class="ph"><img alt="Foto tag ' + esc(t.n) + '" data-blob-id="' + esc(fid) + '">' +
+        '<button type="button" data-delfoto="' + fi + '" data-pi="' + pi + '" data-ti="' + ti + '" aria-label="Rimuovi foto">×</button></div>'
+      ).join('') +
+      '<label class="photo-add">+ Foto<input type="file" accept="image/*" capture="environment" multiple data-photo-pi="' + pi + '" data-photo-ti="' + ti + '" aria-label="Aggiungi foto"></label>' +
+      '</div>' +
+      '<button class="danger" type="button" data-deltag="' + pi + '" data-ti="' + ti + '" style="align-self:flex-start">Elimina tag</button>' +
+      '</div>';
     return h;
   }
 
@@ -360,23 +515,27 @@
       '</div>';
   }
 
+  // Carica nelle immagini i blob salvati in IndexedDB
+  function hydrateBlobs() {
+    app.querySelectorAll('[data-blob-id]').forEach(el => {
+      const id = el.getAttribute('data-blob-id');
+      getBlob(id).then(b => { if (b) el.src = URL.createObjectURL(b); }).catch(() => {});
+    });
+  }
+
   // ---------- Firma ----------
   function initSignature(box, v) {
     const canvas = box.querySelector('canvas');
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    function fit() {
-      const r = box.getBoundingClientRect();
-      const keep = canvas.toDataURL();
-      canvas.width = Math.max(1, Math.floor(r.width * dpr));
-      canvas.height = Math.max(1, Math.floor(r.height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2421';
-      if (v.firma.img) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = v.firma.img; }
-    }
-    fit();
+    const r = box.getBoundingClientRect();
+    canvas.width = Math.max(1, Math.floor(r.width * dpr));
+    canvas.height = Math.max(1, Math.floor(r.height * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#1f2421';
+    if (v.firma.img) { const img = new Image(); img.onload = () => ctx.drawImage(img, 0, 0, r.width, r.height); img.src = v.firma.img; }
     let drawing = false, last = null, touched = false;
-    function pos(e) { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
+    function pos(e) { const q = canvas.getBoundingClientRect(); return { x: e.clientX - q.left, y: e.clientY - q.top }; }
     canvas.addEventListener('pointerdown', (e) => { drawing = true; last = pos(e); touched = true; canvas.setPointerCapture(e.pointerId); box.querySelector('.hint').style.display = 'none'; });
     canvas.addEventListener('pointermove', (e) => {
       if (!drawing) return;
@@ -392,6 +551,7 @@
       box.querySelector('.hint').style.display = '';
       touched = false;
       updateVisit(v.id, x => { x.firma.img = ''; });
+      v.firma.img = '';
       document.getElementById('sigOk').textContent = '';
     });
     document.getElementById('sigSave').addEventListener('click', () => {
@@ -403,43 +563,31 @@
     });
   }
 
-  // ---------- Foto documento (ridotte per il salvataggio) ----------
-  function shrinkImage(file, maxSide, cb) {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = Math.round(img.width * scale); c.height = Math.round(img.height * scale);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        cb(c.toDataURL('image/jpeg', 0.7));
-      };
-      img.src = reader.result;
-    };
-    reader.readAsDataURL(file);
-  }
-
-  // ---------- Eventi ----------
-  function nowIdOf(el) { return el.closest('[data-id]'); }
-
+  // ================= Modifiche ai dati =================
   function applyChange(target) {
     const id = currentId();
+    if (!id) return;
     const g = target.getAttribute('data-g');
     const f = target.getAttribute('data-f');
     if (!g || !f) return;
-    const i = target.getAttribute('data-i');
-    let value;
-    if (target.type === 'checkbox') {
-      value = undefined;
-    } else {
-      value = target.value;
-    }
+    const isCheck = target.type === 'checkbox';
+    const value = target.value;
+    const checked = target.checked;
     updateVisit(id, v => {
-      if (target.type === 'checkbox') {
-        const arr = (i != null ? v[g][Number(i)][f] : v[g][f]) || [];
-        const val = target.value;
-        const out = target.checked ? arr.concat([val]) : arr.filter(x => x !== val);
+      if (g === 'tag') {
+        const pi = Number(target.getAttribute('data-pi'));
+        const ti = Number(target.getAttribute('data-ti'));
+        v.piani[pi].tags[ti][f] = value;
+        return;
+      }
+      if (g === 'piani') {
+        v.piani[Number(target.getAttribute('data-i'))][f] = value;
+        return;
+      }
+      const i = target.getAttribute('data-i');
+      if (isCheck) {
+        const cur = (i != null ? v[g][Number(i)][f] : v[g][f]) || [];
+        const out = checked ? cur.concat([value]) : cur.filter(x => x !== value);
         if (i != null) v[g][Number(i)][f] = out; else v[g][f] = out;
       } else if (i != null) {
         v[g][Number(i)][f] = value;
@@ -449,68 +597,171 @@
     });
   }
 
-  function currentId() {
-    const m = location.hash.match(/^#\/s\/(\d+)/);
-    return m ? m[1] : null;
-  }
-
   function refreshDetail() {
     const id = currentId();
     if (id) renderDetail(id); else renderList();
   }
 
+  // Aggiunge una planimetria (immagine o PDF)
+  function uploadPiano(file) {
+    const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+    setStatus('Caricamento planimetria…');
+    const job = isPdf ? pdfFirstPageBlob(file) : shrinkBlob(file, 2000, 0.85);
+    job.then(blob => {
+      const fileId = newId('p');
+      return putBlob(fileId, blob).then(() => {
+        updateVisit(currentId(), v => {
+          v.piani = v.piani || [];
+          v.piani.push({ nome: 'Piano ' + (v.piani.length + 1), fileId: fileId, tags: [] });
+        });
+        sel = null;
+        renderDetail(currentId());
+      });
+    }).catch(() => setStatus('Impossibile leggere questo file. Prova con un’immagine JPG o PNG.'));
+  }
+
+  // Aggiunge foto a un tag
+  function addPhotos(pi, ti, files) {
+    const list = Array.from(files || []);
+    if (!list.length) return;
+    setStatus('Salvataggio foto…');
+    Promise.all(list.map(f => shrinkBlob(f, 1600, 0.8).then(blob => {
+      const id = newId('f');
+      return putBlob(id, blob).then(() => id);
+    }))).then(ids => {
+      updateVisit(currentId(), v => {
+        const t = v.piani[pi].tags[ti];
+        t.foto = (t.foto || []).concat(ids);
+      });
+      renderDetail(currentId());
+    }).catch(() => setStatus('Foto non salvata. Riprova.'));
+  }
+
+  // Aggiunge un tag nel punto toccato
+  function addTag(pi, x, y) {
+    let newIdx = -1;
+    updateVisit(currentId(), v => {
+      const p = v.piani[pi];
+      p.tags = p.tags || [];
+      const n = p.tags.reduce((m, t) => Math.max(m, Number(t.n) || 0), 0) + 1;
+      p.tags.push({ n: n, x: x, y: y, ambiente: '', ambienteAltro: '', note: '', foto: [] });
+      newIdx = p.tags.length - 1;
+    });
+    sel = { piano: pi, tag: newIdx };
+    renderDetail(currentId());
+  }
+
+  // ================= Eventi =================
   app.addEventListener('input', (e) => {
     const t = e.target;
-    if (!t.hasAttribute('data-g') || t.type === 'checkbox') return;
+    if (!t.hasAttribute('data-g') || t.type === 'checkbox' || t.type === 'file') return;
     applyChange(t);
   });
+
   app.addEventListener('change', (e) => {
     const t = e.target;
     if (t.matches('input[type=file][data-doc]')) {
       const file = t.files && t.files[0];
       if (!file) return;
       const key = t.getAttribute('data-doc');
-      shrinkImage(file, 1000, (dataUrl) => {
+      shrinkBlob(file, 1000, 0.7).then(blob => new Promise(res => {
+        const r = new FileReader(); r.onload = () => res(r.result); r.readAsDataURL(blob);
+      })).then(dataUrl => {
         updateVisit(currentId(), v => { v.firma[key] = dataUrl; });
         renderDetail(currentId());
       });
       return;
     }
-    if (t.type === 'checkbox' && t.hasAttribute('data-g')) { applyChange(t); return; }
-    if (t.tagName === 'SELECT' && t.hasAttribute('data-g')) { applyChange(t); return; }
-    if (t.type === 'date' && t.hasAttribute('data-g')) { applyChange(t); return; }
+    if (t.matches('input[type=file][data-upload-piano]')) {
+      const file = t.files && t.files[0];
+      if (file) uploadPiano(file);
+      return;
+    }
+    if (t.matches('input[type=file][data-photo-pi]')) {
+      addPhotos(Number(t.getAttribute('data-photo-pi')), Number(t.getAttribute('data-photo-ti')), t.files);
+      return;
+    }
+    if (t.hasAttribute('data-g') && (t.type === 'checkbox' || t.tagName === 'SELECT' || t.type === 'date')) {
+      applyChange(t);
+    }
   });
 
   app.addEventListener('click', (e) => {
+    // Tag sul disegno
+    const pin = e.target.closest('[data-pin]');
+    if (pin) {
+      sel = { piano: Number(pin.getAttribute('data-pin')), tag: Number(pin.getAttribute('data-tag')) };
+      renderDetail(currentId());
+      return;
+    }
+    const img = e.target.closest('[data-plan-img]');
+    if (img) {
+      const pi = Number(img.getAttribute('data-plan-img'));
+      const rect = img.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;
+      const y = (e.clientY - rect.top) / rect.height;
+      if (x >= 0 && x <= 1 && y >= 0 && y <= 1) addTag(pi, +x.toFixed(4), +y.toFixed(4));
+      return;
+    }
+
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
-    if (t.hasAttribute('data-open')) { location.hash = '#/s/' + t.getAttribute('data-open'); return; }
+    if (t.hasAttribute('data-open')) { sel = null; location.hash = '#/s/' + t.getAttribute('data-open'); return; }
     if (t.id === 'openNew') { openSheet(); return; }
-    if (t.id === 'back') { location.hash = ''; return; }
-    if (t.hasAttribute('data-tab')) { tab = t.getAttribute('data-tab'); renderDetail(currentId()); return; }
+    if (t.id === 'back') { sel = null; location.hash = ''; return; }
+    if (t.hasAttribute('data-tab')) { tab = t.getAttribute('data-tab'); sel = null; renderDetail(currentId()); return; }
     if (t.hasAttribute('data-add')) {
       const key = t.getAttribute('data-add');
-      const id = currentId();
-      updateVisit(id, v => { v[key].push(GROUPS[key].make()); });
-      renderDetail(id);
+      updateVisit(currentId(), v => { v[key].push(GROUPS[key].make()); });
+      renderDetail(currentId());
       return;
     }
     if (t.hasAttribute('data-del')) {
       const key = t.getAttribute('data-del');
       const idx = Number(t.getAttribute('data-i'));
-      const id = currentId();
-      updateVisit(id, v => { v[key].splice(idx, 1); });
-      renderDetail(id);
+      updateVisit(currentId(), v => { v[key].splice(idx, 1); });
+      renderDetail(currentId());
+      return;
+    }
+    if (t.hasAttribute('data-delpiano')) {
+      const pi = Number(t.getAttribute('data-delpiano'));
+      const v = findVisit(currentId());
+      const p = v && v.piani[pi];
+      if (p) { delBlob(p.fileId); (p.tags || []).forEach(tg => (tg.foto || []).forEach(delBlob)); }
+      updateVisit(currentId(), x => { x.piani.splice(pi, 1); });
+      sel = null;
+      renderDetail(currentId());
+      return;
+    }
+    if (t.hasAttribute('data-deltag')) {
+      const pi = Number(t.getAttribute('data-deltag'));
+      const ti = Number(t.getAttribute('data-ti'));
+      const v = findVisit(currentId());
+      const tg = v && v.piani[pi].tags[ti];
+      if (tg) (tg.foto || []).forEach(delBlob);
+      updateVisit(currentId(), x => { x.piani[pi].tags.splice(ti, 1); });
+      sel = null;
+      renderDetail(currentId());
+      return;
+    }
+    if (t.hasAttribute('data-delfoto')) {
+      const pi = Number(t.getAttribute('data-pi'));
+      const ti = Number(t.getAttribute('data-ti'));
+      const fi = Number(t.getAttribute('data-delfoto'));
+      const v = findVisit(currentId());
+      const fid = v && v.piani[pi].tags[ti].foto[fi];
+      if (fid) delBlob(fid);
+      updateVisit(currentId(), x => { x.piani[pi].tags[ti].foto.splice(fi, 1); });
+      renderDetail(currentId());
       return;
     }
   });
 
   app.addEventListener('keydown', (e) => {
-    const t = e.target;
-    if (e.key === 'Enter' && t.matches('[data-open]')) location.hash = '#/s/' + t.getAttribute('data-open');
+    if (e.key === 'Enter' && e.target.matches('[data-open]')) location.hash = '#/s/' + e.target.getAttribute('data-open');
   });
 
-  // ---------- Nuovo sopralluogo ----------
+  // ================= Nuovo sopralluogo =================
   const sheet = document.getElementById('sheet');
   function openSheet() {
     document.getElementById('err').textContent = '';
@@ -531,11 +782,11 @@
     if (!saveAll(items)) { document.getElementById('err').textContent = 'Impossibile salvare sul telefono. Riprova.'; return; }
     closeSheet();
     tab = 'generali';
+    sel = null;
     location.hash = '#/s/' + v.id;
   });
 
-  // Il pulsante "Nuovo" sta nella barra in basso: delegato sopra in app.click.
-  window.addEventListener('hashchange', refreshDetail);
+  window.addEventListener('hashchange', () => { sel = null; refreshDetail(); });
   refreshDetail();
 
   if ('serviceWorker' in navigator) {
