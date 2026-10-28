@@ -1,5 +1,5 @@
-// Service worker: rende l'app disponibile anche offline dopo il primo caricamento.
-const CACHE = 'sopralluoghi-v0-1';
+// Service worker: rete prima, cache come riserva (così il telefono riceve sempre l'ultima versione).
+const CACHE = 'sopralluoghi-v0-2';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png'];
 
 self.addEventListener('install', (event) => {
@@ -17,10 +17,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((hit) => hit || fetch(event.request).then((res) => {
+    fetch(event.request).then((res) => {
       const copy = res.clone();
       caches.open(CACHE).then((c) => c.put(event.request, copy));
       return res;
-    }).catch(() => caches.match('./index.html')))
+    }).catch(() => caches.match(event.request).then((hit) => hit || caches.match('./index.html')))
   );
 });

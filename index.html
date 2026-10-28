@@ -25,9 +25,20 @@
   .empty { text-align:center; color:var(--muted); padding:32px 8px; font-size:15px; }
   footer { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom) + 16px); background:var(--ground); border-top:1px solid var(--line); }
   button.primary { width:100%; min-height:52px; border:0; border-radius:26px; background:var(--indigo); color:#fff; font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
-  button.primary:disabled { opacity:.5; }
+  button.secondary { width:100%; min-height:52px; border:1px solid var(--line); border-radius:26px; background:#fff; color:var(--ink); font:inherit; font-size:16px; font-weight:600; cursor:pointer; }
   .spacer { height:96px; }
-  .note { font-size:12px; color:var(--muted); text-align:center; }
+  .note { font-size:12px; color:var(--muted); text-align:center; margin-top:8px; }
+
+  /* Modulo di creazione: foglio dal basso, dentro l'app */
+  #sheet { position:fixed; inset:0; background:rgba(31,36,33,.45); display:none; align-items:flex-end; z-index:10; }
+  #sheet.open { display:flex; }
+  #sheet .panel { background:var(--ground); width:100%; border-radius:18px 18px 0 0; padding:18px 20px calc(env(safe-area-inset-bottom) + 20px); display:flex; flex-direction:column; gap:12px; }
+  #sheet h2 { font-size:20px; margin:0; }
+  #sheet label { font-size:12px; color:var(--muted); display:block; margin-bottom:4px; }
+  #sheet input { width:100%; height:48px; border:1px solid #cfcbbf; border-radius:8px; background:#fff; padding:0 12px; font:inherit; font-size:16px; color:var(--ink); }
+  #sheet .err { color:#8a4b08; font-size:13px; min-height:16px; }
+  #sheet .row { display:flex; gap:10px; }
+  #sheet .row > * { flex:1; }
 </style>
 </head>
 <body>
@@ -42,42 +53,77 @@
 <div class="spacer"></div>
 
 <footer>
-  <button class="primary" id="new" type="button">+ Nuovo sopralluogo</button>
-  <div class="note" id="status">Versione di prova · dati salvati sul telefono</div>
+  <button class="primary" id="openNew" type="button">+ Nuovo sopralluogo</button>
+  <div class="note">Versione di prova · dati salvati sul telefono</div>
 </footer>
 
+<div id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+  <form class="panel" id="newForm" autocomplete="off">
+    <h2 id="sheetTitle">Nuovo sopralluogo</h2>
+    <div>
+      <label for="addr">Indirizzo dell’immobile</label>
+      <input id="addr" name="addr" type="text" placeholder="Es. Via Roma 12, Torino" maxlength="120" required>
+    </div>
+    <div class="err" id="err"></div>
+    <div class="row">
+      <button class="secondary" id="cancel" type="button">Annulla</button>
+      <button class="primary" type="submit">Crea</button>
+    </div>
+  </form>
+</div>
+
 <script>
-  // Versione di prova: l'elenco è letto da localStorage (in fase di sviluppo).
   const KEY = 'sopralluoghi_v0';
+  const $ = (id) => document.getElementById(id);
+
   function load() {
     try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
   }
   function save(items) {
-    try { localStorage.setItem(KEY, JSON.stringify(items)); } catch (e) { /* archiviazione non disponibile */ }
+    try { localStorage.setItem(KEY, JSON.stringify(items)); return true; }
+    catch (e) { return false; }
   }
+
   function render() {
     const items = load();
-    const list = document.getElementById('list');
+    const list = $('list');
     list.querySelectorAll('.card').forEach(n => n.remove());
-    document.getElementById('empty').style.display = items.length ? 'none' : 'block';
+    $('empty').style.display = items.length ? 'none' : 'block';
     items.forEach(it => {
       const div = document.createElement('div');
       div.className = 'card';
-      div.innerHTML = '<div class="top"><div class="addr"></div><span class="badge">Bozza</span></div>' +
-                      '<div class="meta"></div>';
-      div.querySelector('.addr').textContent = it.indirizzo || '[Indirizzo immobile]';
+      div.innerHTML = '<div class="top"><div class="addr"></div><span class="badge">Bozza</span></div><div class="meta"></div>';
+      div.querySelector('.addr').textContent = it.indirizzo;
       div.querySelector('.meta').textContent = 'Creato il ' + new Date(it.creato).toLocaleDateString('it-IT');
       list.appendChild(div);
     });
   }
-  document.getElementById('new').addEventListener('click', () => {
-    const indirizzo = prompt('Indirizzo dell’immobile (provvisorio):', '');
-    if (indirizzo === null) return;
+
+  function openSheet() {
+    $('err').textContent = '';
+    $('addr').value = '';
+    $('sheet').classList.add('open');
+    setTimeout(() => $('addr').focus(), 50);
+  }
+  function closeSheet() {
+    $('sheet').classList.remove('open');
+  }
+
+  $('openNew').addEventListener('click', openSheet);
+  $('cancel').addEventListener('click', closeSheet);
+  $('sheet').addEventListener('click', (e) => { if (e.target === $('sheet')) closeSheet(); });
+
+  $('newForm').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const indirizzo = $('addr').value.trim();
+    if (!indirizzo) { $('err').textContent = 'Inserisci l’indirizzo.'; return; }
     const items = load();
-    items.unshift({ id: Date.now(), indirizzo: indirizzo.trim(), creato: new Date().toISOString() });
-    save(items);
+    items.unshift({ id: Date.now(), indirizzo: indirizzo, creato: new Date().toISOString() });
+    if (!save(items)) { $('err').textContent = 'Impossibile salvare sul telefono. Riprova.'; return; }
+    closeSheet();
     render();
   });
+
   render();
 
   if ('serviceWorker' in navigator) {
