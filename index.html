@@ -121,7 +121,8 @@
     { id: 'impianti', label: 'Impianti' },
     { id: 'rinnovabili', label: 'Rinnovabili' },
     { id: 'planimetria', label: 'Planimetria' },
-    { id: 'firma', label: 'Firma' }
+    { id: 'firma', label: 'Firma' },
+    { id: 'informativa', label: 'Informativa' }
   ];
 
   // ================= Modelli dati =================
@@ -138,7 +139,7 @@
       creato: new Date().toISOString(),
       generali: { nome: '', telefono: '', cf: '', foglio: '', mappale: '', sub: '', indirizzoEdificio: indirizzo,
                   piano: '', pianiAbitazione: '', pianiEdificio: '', appartamenti: '',
-                  intervento: '', annoCostruzione: '', tipologiaEdificio: '' },
+                  intervento: '', annoCostruzione: '', tipologiaEdificio: '', provincia: '', comune: '', idCatastale: '' },
       pareti: [ blankWall() ],
       pavimenti: [ blankStruct() ],
       solai: [ blankStruct() ],
@@ -148,7 +149,8 @@
       impianti: { emissione: '', emissioneAltro: '', regolazioneTipo: [], regolazioneCar: [] },
       rinnovabili: [],
       piani: [],
-      firma: { referente: '', qualita: '', qualitaAltro: '', tecnico: '', data: '', img: '', docFronte: '', docRetro: '' }
+      firma: { referente: '', qualita: '', qualitaAltro: '', tecnico: '', data: '', img: '', docFronte: '', docRetro: '' },
+      informativa: {}
     };
   }
 
@@ -160,6 +162,17 @@
     serramenti: { title: 'Serramenti', item: 'Serramento', make: blankWindow },
     generatori: { title: 'Generatori di calore', item: 'Generatore', make: blankGen },
     rinnovabili:{ title: 'Rinnovabili e altri impianti', item: 'Impianto', make: blankRinn }
+  };
+
+  // Dati del certificatore precompilati (modificabili nella scheda Informativa)
+  const INF_DEFAULT = {
+    certNome: 'SEBASTIANO CENGARLE', certCf: 'CNGSST93T10E473T', certPiva: '02806850307',
+    certVia: 'VICOLO CHIUSO 10', certCap: '33061', certComune: 'RIVIGNANO TEOR (UD)',
+    certTel: '+39 338 2341214', certEmail: 'sebastiano.cengarle@gmail.com', certPec: 'sebastiano.cengarle@geopec.it',
+    certOrdine: 'Collegio dei Geometri e dei Geometri Laureati', certProvincia: 'UDINE', certPosizione: '3555', certSettore: '',
+    parziale: 'completo', parzialeNome: '', parzialeOrdine: '', parzialeProvincia: '', parzialeNumero: '',
+    parzialeStudio: '', parzialeVia: '', parzialeContatto: '',
+    metodo: 'rilievo', supplementi: '', condizioni: '', luogo: ''
   };
 
   const OPT = {
@@ -174,7 +187,7 @@
     emissione: ['RADIATORI', 'VENTILCONVETTORI', 'PANNELLI RADIANTI', 'ALTRO'],
     regolazioneTipo: ['Di zona', 'Climatica', 'Per singolo ambiente'],
     regolazioneCar: ['Termostato', 'Valvola termostatica', 'Termoregolazione evoluta'],
-    intervento: ['Nuova costruzione', 'Passaggio proprietà', 'Locazione', 'Riqualificazione energetica'],
+    intervento: ['Nuova costruzione', 'Ristrutturazione I° livello', 'Ristrutturazione II° livello', 'Riqualificazione energetica', 'Passaggio proprietà', 'Locazione', 'Altro'], ordine: ['Ordine degli Ingegneri', 'Ordine degli Architetti, Pianificatori, Paesaggisti e Conservatori', 'Ordine dei Periti Industriali', 'Collegio dei Geometri e dei Geometri Laureati', 'Altro'],
     qualita: ['Proprietario', 'Incaricato alla vendita', 'Referente proprietario', 'Altro'],
     rinnTipo: ['Fotovoltaico', 'Solare termico', 'Stufa a pellet', 'Caminetto', 'Pompa di calore', 'Altro'],
     presente: ['SI', 'NO'],
@@ -335,6 +348,8 @@
     const v = findVisit(id);
     if (!v) { location.hash = ''; return; }
     v.rinnovabili = v.rinnovabili || [];
+    v.generali = Object.assign({ provincia: '', comune: '', idCatastale: '' }, v.generali);
+    v.informativa = v.informativa || {};
     v.piani = v.piani || [];
     let h = '<header class="top"><button class="back" id="back" type="button">‹ Elenco</button>' +
             '<div><div class="sub">Sopralluogo</div><h1>' + esc(v.indirizzo || 'Immobile') + '</h1></div></header>';
@@ -357,6 +372,7 @@
       case 'impianti': return impiantiHtml(v);
       case 'rinnovabili': return rinnovabiliHtml(v);
       case 'planimetria': return planimetriaHtml(v);
+      case 'informativa': return informativaHtml(v);
       default: return firmaHtml(v);
     }
   }
@@ -371,8 +387,10 @@
       '</div>' +
       '<div class="sec-title">Immobile</div><div class="unit">' +
         field('Indirizzo edificio', input(f('indirizzoEdificio'), g.indirizzoEdificio)) +
+        '<div class="row2">' + field('Provincia', input(f('provincia'), g.provincia)) + field('Comune', input(f('comune'), g.comune)) + '</div>' +
         '<div class="row2">' + field('Foglio', input(f('foglio'), g.foglio)) + field('Mappale', input(f('mappale'), g.mappale)) + '</div>' +
         field('Subalterno', input(f('sub'), g.sub)) +
+        field('Identificativo (id.)', input(f('idCatastale'), g.idCatastale)) +
         '<div class="row2">' + field('Piano abitazione', input(f('piano'), g.piano)) + field('N° appartamenti', numInput(f('appartamenti'), g.appartamenti)) + '</div>' +
         '<div class="row2">' + field('N° piani abitazione', numInput(f('pianiAbitazione'), g.pianiAbitazione)) + field('N° piani edificio', numInput(f('pianiEdificio'), g.pianiEdificio)) + '</div>' +
         field('Tipo di intervento', select(f('intervento'), OPT.intervento, g.intervento)) +
@@ -1139,6 +1157,7 @@
           y += 34;
         });
       }).then(() => {
+        drawInformativa(doc, v, true);
         const total = doc.internal.getNumberOfPages();
         for (let i = 1; i <= total; i++) {
           doc.setPage(i);
@@ -1147,6 +1166,208 @@
         }
         return doc;
       });
+    });
+  }
+
+  // ================= Informativa certificatore (Allegato 1 punto 7.1.1 D.M. 26.06.2015) =================
+  function informativaHtml(v) {
+    const inf = Object.assign({}, INF_DEFAULT, v.informativa);
+    const g = v.generali;
+    const a = (k) => 'data-g="informativa" data-f="' + k + '"';
+    const ro = (label, val) => field(label, input('readonly tabindex="-1"', val || '-'));
+    return '<div class="sec-title">Dati del certificatore</div><div class="unit">' +
+        field('Nome e cognome', input(a('certNome'), inf.certNome)) +
+        '<div class="row2">' + field('Codice fiscale', input(a('certCf'), inf.certCf)) + field('P.IVA', input(a('certPiva'), inf.certPiva)) + '</div>' +
+        '<div class="row2">' + field('Via / piazza', input(a('certVia'), inf.certVia)) + field('CAP', input(a('certCap'), inf.certCap)) + '</div>' +
+        field('Studio / sede (comune)', input(a('certComune'), inf.certComune)) +
+        '<div class="row2">' + field('Telefono / fax', input(a('certTel'), inf.certTel)) + field('E-mail', input(a('certEmail'), inf.certEmail)) + '</div>' +
+        field('P.E.C.', input(a('certPec'), inf.certPec)) +
+        field('Iscritto al', select(a('certOrdine'), OPT.ordine, inf.certOrdine)) +
+        '<div class="row2">' + field('Provincia', input(a('certProvincia'), inf.certProvincia)) + field('Posizione n.', input(a('certPosizione'), inf.certPosizione)) + '</div>' +
+        field('Settore / specializzazione', input(a('certSettore'), inf.certSettore)) +
+      '</div>' +
+      '<div class="sec-title">Immobile (dalle schede Generali)</div><div class="unit">' +
+        '<div class="row2">' + ro('Provincia', g.provincia) + ro('Comune', g.comune) + '</div>' +
+        ro('Via / piazza', g.indirizzoEdificio) +
+        '<div class="row2">' + ro('Foglio', g.foglio) + ro('Mappale', g.mappale) + '</div>' +
+        '<div class="row2">' + ro('Subalterno', g.sub) + ro('Identificativo (id.)', g.idCatastale) + '</div>' +
+        ro('Motivazione', g.intervento) +
+        '<div style="font-size:12px;color:var(--muted)">Questi dati si modificano nelle schede Generali.</div>' +
+      '</div>' +
+      '<div class="sec-title">Dichiarazione</div><div class="unit">' +
+        field('Modalità', '<select class="t" ' + a('parziale') + '>' +
+          '<option value="completo"' + (inf.parziale !== 'parziale' ? ' selected' : '') + '>Completo: certifico l’immobile in autonomia</option>' +
+          '<option value="parziale"' + (inf.parziale === 'parziale' ? ' selected' : '') + '>Parziale: certifico insieme al professionista</option></select>') +
+        field('Metodo di calcolo', '<select class="t" ' + a('metodo') + '>' +
+          '<option value="progetto"' + (inf.metodo === 'progetto' ? ' selected' : '') + '>Metodo di calcolo di progetto</option>' +
+          '<option value="rilievo"' + (inf.metodo !== 'progetto' && inf.metodo !== 'rilievoSemplificato' ? ' selected' : '') + '>Metodo di calcolo da rilievo</option>' +
+          '<option value="rilievoSemplificato"' + (inf.metodo === 'rilievoSemplificato' ? ' selected' : '') + '>Metodo di calcolo da rilievo semplificato</option></select>') +
+        '<div style="font-size:12px;color:var(--muted)">Dati del professionista in caso di certificazione parziale:</div>' +
+        field('Nome e cognome', input(a('parzialeNome'), inf.parzialeNome)) +
+        field('Iscritto all’Ordine/Collegio', input(a('parzialeOrdine'), inf.parzialeOrdine)) +
+        '<div class="row2">' + field('Provincia di', input(a('parzialeProvincia'), inf.parzialeProvincia)) + field('Con il numero', input(a('parzialeNumero'), inf.parzialeNumero)) + '</div>' +
+        field('Con studio a', input(a('parzialeStudio'), inf.parzialeStudio)) +
+        field('In via', input(a('parzialeVia'), inf.parzialeVia)) +
+        field('Telefono / mail / PEC', input(a('parzialeContatto'), inf.parzialeContatto)) +
+      '</div>' +
+      '<div class="sec-title">Prestazioni e condizioni</div><div class="unit">' +
+        field('Prestazioni supplementari (descrizione)', '<textarea class="t" ' + a('supplementi') + ' rows="2">' + esc(inf.supplementi) + '</textarea>') +
+        field('Condizioni di erogazione del servizio (descrizione)', '<textarea class="t" ' + a('condizioni') + ' rows="2">' + esc(inf.condizioni) + '</textarea>') +
+      '</div>' +
+      '<div class="sec-title">Luogo e data</div><div class="unit">' +
+        field('Luogo', input(a('luogo'), inf.luogo)) +
+        '<div style="font-size:12px;color:var(--muted)">Data: ' + esc(dateIt(v.firma.data)) + ' (dalla scheda Firma). Committente: ' + esc(v.firma.referente || '-') + ' (dalla scheda Firma).</div>' +
+      '</div>' +
+      '<div class="sec-title">Esportazione</div><div class="unit">' +
+        '<button class="primary" id="exportInf" type="button" style="width:100%">Esporta solo informativa (PDF)</button>' +
+      '</div>';
+  }
+
+  // Disegna l'informativa su un documento jsPDF. Con inMain=true la aggiunge in fondo al PDF del sopralluogo.
+  function drawInformativa(doc, v, inMain) {
+    const inf = Object.assign({}, INF_DEFAULT, v.informativa);
+    const g = v.generali || {}, fi = v.firma || {};
+    const PW = 210, PH = 297, M = 18, W = PW - 2 * M, LH = 4.6, BLUE = [31, 78, 150];
+    const dash = (s) => (s && String(s).trim()) ? String(s) : '________________';
+    let y = 0, startPage = 0;
+    if (inMain) doc.addPage();
+    startPage = doc.internal.getNumberOfPages();
+
+    function header() {
+      doc.setFillColor(BLUE[0], BLUE[1], BLUE[2]); doc.rect(0, 0, PW, 27, 'F');
+      doc.setTextColor(255, 255, 255); doc.setFont('helvetica', 'bold');
+      doc.setFontSize(15); doc.text('INFORMATIVA', PW / 2, 10, { align: 'center' });
+      doc.setFontSize(10.5); doc.text('ai sensi del D.M. 26.06.2015 – attuazione del D.Lgs. n.192/05', PW / 2, 16.5, { align: 'center' });
+      doc.text('Allegato 1 punto 7.1.1.', PW / 2, 22, { align: 'center' });
+      doc.setTextColor(0, 0, 0); doc.setFont('helvetica', 'normal'); doc.setFontSize(9.5);
+      y = 36;
+    }
+    function newPage() { doc.addPage(); header(); }
+    function need(h) { if (y + h > PH - 20) newPage(); }
+    function para(text, x, width, size) {
+      doc.setFontSize(size || 9.5);
+      doc.splitTextToSize(text, width).forEach(line => { need(LH); doc.text(line, x, y + 3.2); y += LH; });
+    }
+    function bullet(text, indent, noMark) {
+      doc.setFontSize(9.5);
+      const lines = doc.splitTextToSize(text, W - indent - 5);
+      lines.forEach((line, i) => {
+        need(LH);
+        if (i === 0 && !noMark) doc.text('•', M + indent, y + 3.2);
+        doc.text(line, M + indent + 5, y + 3.2); y += LH;
+      });
+    }
+    function box(x, yy, checked) {
+      doc.setDrawColor(0); doc.setLineWidth(0.3); doc.rect(x, yy - 2.6, 3.2, 3.2);
+      if (checked) { doc.setLineWidth(0.4); doc.line(x + 0.5, yy - 2.1, x + 2.7, yy + 0.5); doc.line(x + 2.7, yy - 2.1, x + 0.5, yy + 0.5); }
+    }
+    function checkLine(label, checked, indent) {
+      need(LH); box(M + indent, y + 3.2, checked);
+      doc.setFontSize(9.5);
+      doc.splitTextToSize(label, W - indent - 8).forEach((line, i) => { if (i) { need(LH); } doc.text(line, M + indent + 5, y + 3.2); y += LH; });
+    }
+    function grid(items, cols) {
+      const cw = W / cols;
+      for (let r = 0; r * cols < items.length; r++) {
+        need(LH + 1);
+        items.slice(r * cols, r * cols + cols).forEach((it, c) => {
+          box(M + c * cw, y + 3.2, it.checked);
+          doc.setFontSize(8.5); doc.text(it.label, M + c * cw + 4.5, y + 3.2);
+        });
+        y += LH + 1.5;
+      }
+    }
+
+    header();
+    // Soggetto certificatore
+    para('Il sottoscritto ' + inf.certNome + ', CF/P.Iva ' + inf.certCf + ' / ' + inf.certPiva + ', con studio/sede in ' + inf.certComune +
+      ', Via/Piazza ' + inf.certVia + ', CAP ' + inf.certCap + ', Tel/Fax ' + inf.certTel + ', e-mail ' + inf.certEmail + ', P.E.C. ' + inf.certPec, M, W);
+    y += 2;
+    para('Iscritto al:', M, W);
+    OPT.ordine.forEach(o => checkLine(o === 'Altro' ? 'altro – specificare: ' : o, o === inf.certOrdine, 3));
+    y += 1;
+    para('Provincia ' + dash(inf.certProvincia) + ', posizione ' + dash(inf.certPosizione) + ', settore/specializzazione ' + (inf.certSettore || ''), M, W);
+    y += 2;
+    para("a seguito del conferimento dell’incarico per effettuare l’Attestato di Prestazione Energetica, ai sensi del DLgs. 192/2005 e s.m.i. e del DM 26.06.2015 L.N.G., relativo all’immobile/agli immobili:", M, W);
+    y += 1;
+    para('sito/i in Provincia di ' + dash(g.provincia) + ', comune di ' + dash(g.comune) + ', via/piazza ' + dash(g.indirizzoEdificio) +
+      ', foglio n. ' + dash(g.foglio) + ', mappale n. ' + dash(g.mappale) + ', sub. ' + dash(g.sub) + ', id. ' + dash(g.idCatastale) + ',', M, W);
+    y += 2;
+    para('per la seguente motivazione', M, W);
+    grid(OPT.intervento.map(o => ({ label: o.toLowerCase(), checked: g.intervento === o })), 4);
+    y += 2;
+    need(10); doc.setFont('helvetica', 'bold'); doc.setFontSize(11);
+    doc.text('dichiara', PW / 2, y + 4, { align: 'center' }); y += 8;
+    doc.setFont('helvetica', 'normal');
+    bullet('di possedere i requisiti di abilitazione all’attestazione della prestazione energetica previsti dal DPR 75/2015', 0);
+    y += 1;
+    checkLine('in modo completo e quindi dichiara di certificare l’immobile in autonomia;', inf.parziale !== 'parziale', 0);
+    checkLine('in modo parziale e dichiara di certificare l’immobile insieme al professionista:', inf.parziale === 'parziale', 0);
+    [['nome e cognome', inf.parzialeNome], ['iscritto all’Ordine/Collegio professionale', inf.parzialeOrdine], ['della Provincia di', inf.parzialeProvincia],
+     ['con il numero', inf.parzialeNumero], ['con studio a', inf.parzialeStudio], ['in via', inf.parzialeVia], ['telefono/mail/pec', inf.parzialeContatto]]
+      .forEach(([l, val]) => para(l + ': ' + (val || '________________________________________________'), M + 8, W - 8));
+    y += 1;
+    bullet('che la procedura da rispettare per la valutazione della prestazione energetica e il rilascio del relativo attestato è la seguente:', 0);
+    bullet('1. l’esecuzione di un rilievo in sito e, se del caso, di una verifica di progetto, finalizzati alla determinazione dell’indice di prestazione energetica dell’immobile e all’eventuale redazione di una diagnosi energetica, per l’individuazione degli interventi di riqualificazione energetica che risultano economicamente convenienti. Queste operazioni comprendono:', 6, true);
+    bullet('a) il reperimento dei dati di ingresso, relativamente alle caratteristiche climatiche della località, alle caratteristiche dell’utenza, all’uso energetico dell’immobile e alle specifiche caratteristiche dell’edificio e degli impianti, avvalendosi, ove disponibile dell’attestato di qualificazione energetica;', 12, true);
+    bullet('b) l’individuazione del modello di calcolo, procedura e metodo, e la determinazione della prestazione energetica relativamente a tutti gli usi energetici pertinenti per l’edificio, espressi in base agli indici di prestazione energetica totale e parziali secondo il seguente metodo di calcolo:', 12, true);
+    checkLine('metodo di calcolo di progetto (applicabile a tutte le tipologie edilizie, sia per gli edifici nuovi che per quelli esistenti, indipendentemente dalla loro dimensione)', inf.metodo === 'progetto', 18);
+    checkLine('metodo di calcolo da rilievo (applicabile a tutti gli edifici esistenti, indipendentemente dalla tipologia edilizia e dalla dimensione)', inf.metodo !== 'progetto' && inf.metodo !== 'rilievoSemplificato', 18);
+    checkLine('metodo di calcolo da rilievo semplificato (applicabile esclusivamente agli edifici o alle unità immobiliari residenziali esistenti, con superficie utile inferiore o uguale a 200 mq, fatta eccezione per i casi in cui si rediga l’APE in conseguenza di una ristrutturazione importante)', inf.metodo === 'rilievoSemplificato', 18);
+    bullet('c) l’individuazione delle opportunità di intervento per il miglioramento della prestazione energetica in relazione alle soluzioni tecniche proponibili, ai rapporti costi-benefici e ai tempi di ritorno degli investimenti necessari a realizzarle;', 12, true);
+    bullet('2. la classificazione dell’edificio in funzione degli indici di prestazione energetica e il suo confronto con i limiti di legge e le potenzialità di miglioramento in relazione agli interventi di riqualificazione individuati;', 6, true);
+    bullet('3. il deposito telematico dell’attestato di prestazione energetica presso il catasto energetico della Regione Friuli Venezia Giulia;', 6, true);
+    bullet('4. la consegna dell’attestato di prestazione energetica al committente entro quindici giorni dalla consegna alla Regione, unitamente alla ricevuta di avvenuto deposito presso il catasto energetico regionale.', 6, true);
+    bullet('di essere obbligato dell’esecuzione di un sopralluogo durante il quale si verificheranno i dati relativi all’uso energetico dell’immobile e alle specifiche caratteristiche dell’edificio e degli impianti, anche attraverso rilievo fotografico;', 0);
+    bullet('che le eventuali prestazioni supplementari per l’erogazione del servizio (quali, ad esempio, l’esecuzione di prove in situ) sono le seguenti:', 0);
+    para('descrizione: ' + (inf.supplementi || '______________________________________________________________'), M + 6, W - 6);
+    bullet('che le condizioni di erogazione del servizio, compreso eventualmente l’elenco dei documenti da prodursi a cura del richiedente e le modalità attraverso cui comunicare al soggetto certificatore il nominativo del direttore dei lavori, garantire l’informazione delle diverse fasi di realizzazione dell’intervento edilizio e l’accesso al cantiere. sono le seguenti:', 0);
+    para('descrizione: ' + (inf.condizioni || '______________________________________________________________'), M + 6, W - 6);
+
+    // Luogo, data e firme
+    y += 6; need(70);
+    const colR = M + W / 2 + 4;
+    doc.setFontSize(9.5);
+    doc.text('Luogo e data', M, y + 4); doc.text('Il certificatore incaricato', colR, y + 4);
+    doc.setFontSize(8); doc.text('timbro e firma', colR, y + 8);
+    doc.setFontSize(9.5);
+    doc.text((inf.luogo || '________________') + ', ' + (dateIt(fi.data) === '-' ? '________________' : dateIt(fi.data)), M, y + 12);
+    doc.setDrawColor(150); doc.rect(colR, y + 10, W / 2 - 4, 26);
+    y += 42;
+    doc.setDrawColor(0);
+    doc.text('Per presa visione il committente/richiedente', M, y + 4);
+    doc.setFontSize(8); doc.text('(obbligatorio indicare il nome e cognome e firma leggibile)', M, y + 8);
+    doc.setFontSize(9.5);
+    doc.text('Nome – Cognome: ' + (fi.referente || '________________________'), M, y + 16);
+    doc.text('firma', colR, y + 16);
+    doc.setDrawColor(150); doc.rect(colR, y + 18, W / 2 - 4, 22);
+    if (fi.img) { try { doc.addImage(fi.img, 'PNG', colR + 2, y + 19, 60, 20); } catch (e) { console.warn('Firma non inseribile', e); } }
+    doc.setDrawColor(0);
+
+    // Piè di pagina dell'informativa
+    const last = doc.internal.getNumberOfPages(), total = last - startPage + 1;
+    for (let i = startPage; i <= last; i++) {
+      doc.setPage(i); doc.setFontSize(7); doc.setTextColor(90, 90, 90);
+      doc.text('Pag.' + (i - startPage + 1) + ' di ' + total, PW - M, PH - 9, { align: 'right' });
+      doc.setTextColor(0, 0, 0);
+    }
+    return doc;
+  }
+
+  function exportInformativa() {
+    const v = findVisit(currentId());
+    if (!v) return;
+    setStatus('Creazione informativa in corso…');
+    loadJsPdf().then(JsPDF => {
+      const doc = new JsPDF({ unit: 'mm', format: 'a4' });
+      drawInformativa(doc, v, false);
+      const slug = (v.indirizzo || 'immobile').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '');
+      const name = 'Informativa_' + slug + '_' + new Date().toISOString().slice(0, 10) + '.pdf';
+      doc.save(name);
+      setStatus('Informativa creata: ' + name + ' (cartella Download)');
+    }).catch((err) => {
+      console.error('Errore informativa:', err);
+      setStatus('Impossibile creare l’informativa: ' + (err && err.message ? err.message : String(err)));
     });
   }
 
@@ -1225,6 +1446,7 @@
     if (ink) { inkAction(ink.getAttribute('data-ink'), Number(ink.getAttribute('data-pi'))); return; }
 
     if (e.target.closest('#exportPdf')) { exportPdf(); return; }
+    if (e.target.closest('#exportInf')) { exportInformativa(); return; }
     const t = e.target.closest('button, [data-open]');
     if (!t) return;
     if (t.hasAttribute('data-open')) { sel = null; location.hash = '#/s/' + t.getAttribute('data-open'); return; }
