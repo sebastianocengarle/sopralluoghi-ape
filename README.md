@@ -16,6 +16,7 @@ Web app installabile (PWA) per la raccolta dei dati di sopralluogo per gli Attes
 - Foto e planimetrie sono salvate in IndexedDB sul telefono. Le planimetrie PDF usano pdf.js dal CDN (serve connessione alla prima apertura).
 - Esportazione PDF: il pulsante "Esporta PDF" si trova nella scheda Firma, sotto il riquadro della firma. Crea il file con tutte le sezioni, le planimetrie con i tag, le foto, il documento e la firma. Il file viene salvato in Download. La libreria jsPDF è in lib/ e funziona offline.
 - Scheda Informativa certificatore (come da modello D.M. 26.06.2015): compilata con i dati di Generali; esportabile da sola e inclusa in fondo al PDF del sopralluogo.
+- Esportazione ZIP: PDF completo, informativa separata, foto dei tag (JPEG al 50% dell'originale) e planimetrie con tag e appunti, nella cartella Download.
 - Da fare: collegamento a Google Drive, campi mancanti (ACS, raffrescamento, ventilazione, superfici).
 
 ## Sviluppo locale
